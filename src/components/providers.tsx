@@ -25,12 +25,23 @@ const queryClient = new QueryClient({
   },
 });
 
-// ASSUMPTION: We enable BOTH Ethereum and TON connectors so Dynamic provisions
-// a stable EVM EOA (Aave side) AND a TON wallet (USDT-TON side) from the single
-// Telegram social login. This is the spine of the whole bridge architecture.
+// We enable BOTH Ethereum and TON connectors so Dynamic provisions a stable EVM
+// EOA (Aave side) AND a TON wallet (USDT-TON side) from the single Telegram login.
+//
+// TEMP DEBUG: VITE_DISABLE_TON=1 drops the TON connector to match Dynamic's
+// known-working reference repo (EVM + Solana, no TON). We're testing whether the
+// TON connector's init is what breaks Telegram sign-in (the 400 "Invalid OAuth
+// state"). If EVM-only signs in cleanly, TON is the culprit and we re-add it via
+// a different path (TON Connect, or lazy after auth).
+// TEMP: defaulting to true for the EVM-only A/B test (no Vercel env needed).
+// Flip back to `=== "1"` once we know whether TON is the auth blocker.
+const DISABLE_TON = import.meta.env.VITE_DISABLE_TON !== "0";
+
 const dynamicSettings: DynamicContextProps["settings"] = {
   environmentId: DYNAMIC_ENVIRONMENT_ID,
-  walletConnectors: [EthereumWalletConnectors, TonWalletConnectors],
+  walletConnectors: DISABLE_TON
+    ? [EthereumWalletConnectors]
+    : [EthereumWalletConnectors, TonWalletConnectors],
   // Telegram social login is configured in the Dynamic dashboard; the SDK picks
   // it up automatically inside the Telegram WebView.
 };
