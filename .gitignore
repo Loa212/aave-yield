@@ -1,1 +1,26 @@
+# reference repos — gitignored per PLAN.md
 .tmp
+
+# deps
+node_modules
+
+# build output
+dist
+dist-ssr
+
+# env / secrets
+.env
+.env.local
+.env.*.local
+
+# vercel
+.vercel
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / OS
+.DS_Store
+*.local
+.idea
