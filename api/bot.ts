@@ -134,7 +134,12 @@ export default async function handler(req: VercelReq, res: VercelRes) {
     // Respond to /start (the launch entry point). Ack everything else.
     if (msg?.from && msg.chat && (msg.text ?? "").startsWith("/start")) {
       const userData: TgUser = {
-        authDate: Math.floor(Date.now() / 1000),
+        // NOTE: milliseconds, matching Dynamic's reference bot exactly
+        // (Math.floor(new Date().getTime())). Telegram's own convention is
+        // seconds, but Dynamic's verifier was built against THIS reference, so
+        // we mirror it byte-for-byte rather than "correct" it — the JWT hash is
+        // self-consistent either way, but the verifier is the source of truth.
+        authDate: Math.floor(Date.now()),
         firstName: msg.from.first_name ?? "",
         lastName: "",
         username: msg.from.username ?? "",
