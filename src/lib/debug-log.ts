@@ -87,13 +87,48 @@ export function installDebugCapture() {
   window.fetch = async (...args: Parameters<typeof fetch>) => {
     const url =
       typeof args[0] === "string" ? args[0] : (args[0] as Request).url;
-    const short = url.replace(/^https?:\/\//, "").slice(0, 60);
+    // Show the path tail (the endpoint), not the truncated host — we need to see
+    // WHICH dynamic endpoints run before /telegram/signin.
+    const short = (() => {
+      try {
+        const u = new URL(url);
+        return `${u.host.split(".")[0]}…${u.pathname.replace(/\/sdk\/[0-9a-f-]+/, "/sdk/…")}`;
+      } catch {
+        return url.slice(0, 60);
+      }
+    })();
+    const method =
+      (args[1] as RequestInit | undefined)?.method ??
+      (typeof args[0] !== "string" ? (args[0] as Request).method : "GET");
+    // For the telegram signin call, log which fields we send (esp. whether
+    // sessionPublicKey/code are present — the OpenAPI marks them required).
+    if (/telegram\/signin/i.test(url)) {
+      try {
+        const rawBody = (args[1] as RequestInit | undefined)?.body;
+        if (typeof rawBody === "string") {
+          const b = JSON.parse(rawBody) as Record<string, unknown>;
+          dbg(
+            "info",
+            `signin body keys: ${Object.keys(b).join(",")} | sessionPublicKey=${
+              b.sessionPublicKey ? "set" : "EMPTY"
+            } code=${b.code ? "set" : "EMPTY"} state=${
+              b.state ? "set" : "EMPTY"
+            }`,
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+    }
     const started = Date.now() - t0;
     try {
       const res = await origFetch(...args);
       // Only log non-2xx or Dynamic-related calls to avoid noise.
       if (!res.ok || /dynamic|dynamicauth/i.test(url)) {
-        dbg("net", `${res.status} ${short} (+${Date.now() - t0 - started}ms)`);
+        dbg(
+          "net",
+          `${method} ${res.status} ${short} (+${Date.now() - t0 - started}ms)`,
+        );
         // For Dynamic 4xx, dump the response body — it carries the real reason
         // (e.g. "Invalid or expired OAuth state"). Clone so we don't consume it.
         if (res.status >= 400 && /dynamicauth/i.test(url)) {
