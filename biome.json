@@ -9,6 +9,7 @@
     "includes": [
       "src/**/*.{ts,tsx,js,jsx,json}",
       "api/**/*.{ts,js}",
+      "scripts/**/*.{ts,js}",
       "*.{ts,js,json}",
       "!**/.tmp",
       "!**/node_modules",
