@@ -22,6 +22,22 @@ export function DebugReadout({ label }: { label?: string }) {
       return false;
     }
   })();
+  // Where did Telegram put our query param? Dump every candidate location.
+  const wa = (() => {
+    try {
+      return window.Telegram?.WebApp as
+        | {
+            initData?: string;
+            initDataUnsafe?: { start_param?: string };
+          }
+        | undefined;
+    } catch {
+      return undefined;
+    }
+  })();
+  const startParam = wa?.initDataUnsafe?.start_param ?? "";
+  const search = typeof window !== "undefined" ? window.location.search : "";
+  const hash = typeof window !== "undefined" ? window.location.hash : "";
   const envId = import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID ?? "";
   const entries = getDebugEntries();
 
@@ -33,6 +49,13 @@ export function DebugReadout({ label }: { label?: string }) {
         <div>envId: {envId ? `${envId.slice(0, 8)}…` : "NONE"}</div>
         <div>token in URL: {String(hasToken)}</div>
         <div>inside TG: {String(inTg)}</div>
+        <div className="break-all">search: {search || "(empty)"}</div>
+        <div className="break-all">
+          start_param: {startParam ? `${startParam.slice(0, 40)}…` : "(empty)"}
+        </div>
+        <div className="break-all">
+          hash: {hash ? `${hash.slice(0, 50)}…` : "(empty)"}
+        </div>
       </div>
       <div className="border-t border-border pt-1.5">
         <div className="mb-1 opacity-70">log:</div>
