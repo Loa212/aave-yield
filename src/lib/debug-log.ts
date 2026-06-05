@@ -56,6 +56,15 @@ export function installDebugCapture() {
       // Only log non-2xx or Dynamic-related calls to avoid noise.
       if (!res.ok || /dynamic|dynamicauth/i.test(url)) {
         dbg("net", `${res.status} ${short} (+${Date.now() - t0 - started}ms)`);
+        // For Dynamic 4xx, dump the response body — it carries the real reason
+        // (e.g. "Invalid or expired OAuth state"). Clone so we don't consume it.
+        if (res.status >= 400 && /dynamicauth/i.test(url)) {
+          res
+            .clone()
+            .text()
+            .then((body) => dbg("error", `body ${res.status}: ${body}`))
+            .catch(() => undefined);
+        }
       }
       return res;
     } catch (err) {
