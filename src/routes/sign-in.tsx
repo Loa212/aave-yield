@@ -11,6 +11,13 @@ export const Route = createFileRoute("/sign-in")({
   component: SignInPage,
 });
 
+/** True if the launch URL carries the Dynamic telegramAuthToken (query param). */
+function hasAuthToken(): boolean {
+  if (typeof window === "undefined") return false;
+  // Dynamic reads it from searchParams; Telegram appends its own #hash after it.
+  return new URL(window.location.href).searchParams.has("telegramAuthToken");
+}
+
 function SignInPage() {
   const navigate = useNavigate();
   const { telegramSignIn } = useTelegramLogin();
@@ -29,6 +36,19 @@ function SignInPage() {
 
   async function doSignIn() {
     setError(null);
+
+    // Dynamic reads ?telegramAuthToken from the LAUNCH url. If it's absent, the
+    // app was opened from the bot's menu button / direct link instead of the
+    // inline "Open" button the /start message sends — telegramSignIn() would
+    // fail silently. Tell the user how to fix it instead of looking broken.
+    if (!hasAuthToken()) {
+      setError(
+        "Open the app from the bot's Start button. Send /start to the bot and tap “Open Aave Yield”.",
+      );
+      notify("error");
+      return;
+    }
+
     setSigningIn(true);
     try {
       // forceCreateUser: true so a brand-new Telegram user gets a wallet
