@@ -27,8 +27,11 @@ export function AuthGate({ children }: PropsWithChildren) {
 
   if (!sdkHasLoaded) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        {/* TEMP DEBUG: surfaces why we're stuck when there's no console (TG WebView).
+            Remove before the Loom. */}
+        <DebugReadout sdkHasLoaded={sdkHasLoaded} />
       </div>
     );
   }
@@ -43,4 +46,27 @@ export function AuthGate({ children }: PropsWithChildren) {
   }
 
   return <>{children}</>;
+}
+
+// TEMP DEBUG: on-screen readout for the Telegram WebView (no console there).
+function DebugReadout({ sdkHasLoaded }: { sdkHasLoaded: boolean }) {
+  const url = typeof window !== "undefined" ? window.location.href : "";
+  const hasToken = url.includes("telegramAuthToken=");
+  const inTg = (() => {
+    try {
+      return Boolean(window.Telegram?.WebApp?.initData);
+    } catch {
+      return false;
+    }
+  })();
+  const envId = import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID ?? "";
+  return (
+    <div className="max-w-xs break-words rounded-md border border-border bg-card p-3 text-left text-[11px] text-muted-foreground">
+      <div>sdkHasLoaded: {String(sdkHasLoaded)}</div>
+      <div>envId set: {envId ? `yes (${envId.slice(0, 8)}…)` : "NO"}</div>
+      <div>token in URL: {String(hasToken)}</div>
+      <div>inside Telegram: {String(inTg)}</div>
+      <div className="mt-1 opacity-60">href: {url.slice(0, 80)}</div>
+    </div>
+  );
 }
