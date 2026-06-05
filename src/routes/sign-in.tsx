@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
 import { dbg } from "@/lib/debug-log";
-import { isInsideTelegram, notify } from "@/lib/telegram";
+import { isInsideTelegram, mintAuthToken, notify } from "@/lib/telegram";
 
 export const Route = createFileRoute("/sign-in")({
   component: SignInPage,
@@ -47,26 +47,33 @@ function SignInPage() {
 
   async function doSignIn() {
     setError(null);
-    dbg("info", `doSignIn: hasToken=${hasAuthToken()}`);
-
-    // Dynamic reads ?telegramAuthToken from the LAUNCH url. If it's absent, the
-    // app was opened from the bot's menu button / direct link instead of the
-    // inline "Open" button the /start message sends — telegramSignIn() would
-    // fail silently. Tell the user how to fix it instead of looking broken.
-    if (!hasAuthToken()) {
-      setError(
-        "Open the app from the bot's Start button. Send /start to the bot and tap “Open Aave Yield”.",
-      );
-      notify("error");
-      return;
-    }
-
     setSigningIn(true);
     try {
+      // Telegram strips ?telegramAuthToken from web_app launch URLs on iOS, so
+      // we can't rely on the URL. Prefer a token minted from the live WebApp
+      // initData (our /api/bot?action=mint), and fall back to the URL token
+      // for desktop/web where the query param survives.
+      dbg("info", "minting auth token from initData…");
+      const minted = await mintAuthToken();
+      dbg("info", `mint result: ${minted ? "got token" : "null"}`);
+
+      // Pass the minted token explicitly (bypasses the stripped URL). If minting
+      // failed but the URL has a token (desktop/web), leave authToken undefined
+      // so the SDK reads it from the URL.
+      const authToken = minted ?? undefined;
+
+      if (!authToken && !hasAuthToken()) {
+        setError(
+          "Couldn't authenticate with Telegram. Open the app from the bot's Start button (send /start, tap “Open Aave Yield”).",
+        );
+        notify("error");
+        return;
+      }
+
       // forceCreateUser: true so a brand-new Telegram user gets a wallet
       // provisioned on first tap (the "seamless onboarding" in the plan).
       dbg("info", "telegramSignIn() calling…");
-      await telegramSignIn({ forceCreateUser: true });
+      await telegramSignIn({ forceCreateUser: true, authToken });
       dbg("info", "telegramSignIn() returned ok");
     } catch (e) {
       dbg("error", `telegramSignIn threw: ${String(e)}`);

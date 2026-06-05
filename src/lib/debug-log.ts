@@ -47,17 +47,15 @@ export function installDebugCapture() {
   // Wrap fetch to surface failing/slow Dynamic API calls.
   const origFetch = window.fetch.bind(window);
   window.fetch = async (...args: Parameters<typeof fetch>) => {
-    const url = typeof args[0] === "string" ? args[0] : (args[0] as Request).url;
+    const url =
+      typeof args[0] === "string" ? args[0] : (args[0] as Request).url;
     const short = url.replace(/^https?:\/\//, "").slice(0, 60);
     const started = Date.now() - t0;
     try {
       const res = await origFetch(...args);
       // Only log non-2xx or Dynamic-related calls to avoid noise.
       if (!res.ok || /dynamic|dynamicauth/i.test(url)) {
-        dbg(
-          "net",
-          `${res.status} ${short} (+${Date.now() - t0 - started}ms)`,
-        );
+        dbg("net", `${res.status} ${short} (+${Date.now() - t0 - started}ms)`);
       }
       return res;
     } catch (err) {

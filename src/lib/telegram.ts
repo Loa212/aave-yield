@@ -92,6 +92,41 @@ export async function initTelegram(): Promise<void> {
   }
 }
 
+/**
+ * Mint a Dynamic telegramAuthToken from the live WebApp initData.
+ *
+ * WHY: Telegram strips custom ?query params from web_app launch URLs on iOS, so
+ * the ?telegramAuthToken approach from Dynamic's reference bot is unreliable.
+ * Instead we post the WebApp initData (always available in the WebView) to our
+ * /api/bot?action=mint endpoint, which validates it with the bot token and
+ * returns a JWT. We then pass that to telegramSignIn({ authToken }).
+ *
+ * Returns the token, or null if not inside Telegram / minting failed.
+ */
+export async function mintAuthToken(): Promise<string | null> {
+  const initData = (() => {
+    try {
+      return window.Telegram?.WebApp?.initData ?? "";
+    } catch {
+      return "";
+    }
+  })();
+  if (!initData) return null;
+
+  try {
+    const res = await fetch("/api/bot?action=mint", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ initData }),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { telegramAuthToken?: string };
+    return json.telegramAuthToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** True when we're actually inside the Telegram WebView. */
 export function isInsideTelegram(): boolean {
   try {

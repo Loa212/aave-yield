@@ -24,12 +24,15 @@ import crypto from "node:crypto";
 // Minimal Vercel handler types (no @vercel/node dep needed).
 interface VercelReq {
   method?: string;
+  url?: string;
   body?: unknown;
+  query?: Record<string, string | string[]>;
 }
 interface VercelRes {
   status: (code: number) => VercelRes;
   json: (body: unknown) => void;
   send: (body: string) => void;
+  setHeader: (k: string, v: string) => void;
 }
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
@@ -110,14 +113,111 @@ async function sendMessage(chatId: number, text: string, replyMarkup: unknown) {
   });
 }
 
+/**
+ * Validate Telegram WebApp initData per the official scheme
+ * (https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app):
+ * secret = HMAC_SHA256(botToken, "WebAppData"); expected = HMAC_SHA256(secret,
+ * dataCheckString). Returns the parsed fields if valid, else null.
+ */
+function validateInitData(initData: string): {
+  id: number;
+  firstName: string;
+  lastName: string;
+  username: string;
+} | null {
+  const params = new URLSearchParams(initData);
+  const hash = params.get("hash");
+  if (!hash) return null;
+  params.delete("hash");
+
+  const dataCheckString = [...params.entries()]
+    .map(([k, v]) => `${k}=${v}`)
+    .sort()
+    .join("\n");
+
+  const secret = crypto
+    .createHmac("sha256", "WebAppData")
+    .update(TOKEN)
+    .digest();
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(dataCheckString)
+    .digest("hex");
+  if (expected !== hash) return null;
+
+  try {
+    const user = JSON.parse(params.get("user") ?? "{}");
+    return {
+      id: Number(user.id),
+      firstName: user.first_name ?? "",
+      lastName: user.last_name ?? "",
+      username: user.username ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * POST /api/bot?action=mint  body: { initData }
+ * Validates the WebApp initData and returns a Dynamic-compatible
+ * telegramAuthToken. This is how the Mini App authenticates WITHOUT relying on
+ * a ?telegramAuthToken launch param — Telegram strips custom query params from
+ * web_app launch URLs on iOS, so the app posts its initData here instead and
+ * gets the JWT back, then calls telegramSignIn({ authToken }).
+ */
+function handleMint(req: VercelReq, res: VercelRes) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const body = (req.body ?? {}) as { initData?: string };
+  const initData = body.initData;
+  if (!initData) {
+    res.status(400).json({ error: "missing initData" });
+    return;
+  }
+  const user = validateInitData(initData);
+  if (!user) {
+    res.status(401).json({ error: "invalid initData hash" });
+    return;
+  }
+  const userData: TgUser = {
+    authDate: Math.floor(Date.now()),
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+    id: user.id,
+    photoURL: "",
+  };
+  const hash = generateTelegramHash(userData);
+  const telegramAuthToken = signJwtHs256({ ...userData, hash }, TOKEN);
+  res.status(200).json({ telegramAuthToken });
+}
+
 export default async function handler(req: VercelReq, res: VercelRes) {
+  if (!TOKEN) {
+    res.status(500).json({ error: "TELEGRAM_BOT_TOKEN not configured" });
+    return;
+  }
+
+  // CORS preflight for the browser-side mint call.
+  if (req.method === "OPTIONS") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "content-type");
+    res.status(200).send("");
+    return;
+  }
+
+  // ?action=mint → browser exchanges WebApp initData for a JWT.
+  const action =
+    typeof req.query?.action === "string" ? req.query.action : undefined;
+  if (req.method === "POST" && action === "mint") {
+    handleMint(req, res);
+    return;
+  }
+
   if (req.method !== "POST") {
     // GET hits (e.g. health check) — don't 500.
     res.status(200).send("ok");
-    return;
-  }
-  if (!TOKEN) {
-    res.status(500).json({ error: "TELEGRAM_BOT_TOKEN not configured" });
     return;
   }
 
