@@ -2,9 +2,11 @@ import { useTelegramLogin } from "@dynamic-labs/sdk-react-core";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
+import { DebugReadout } from "@/components/debug-readout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
+import { dbg } from "@/lib/debug-log";
 import { isInsideTelegram, notify } from "@/lib/telegram";
 
 export const Route = createFileRoute("/sign-in")({
@@ -26,9 +28,18 @@ function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [autoTried, setAutoTried] = useState(false);
 
+  // TEMP DEBUG: trace auth-state transitions so we can see where it stalls.
+  useEffect(() => {
+    dbg(
+      "info",
+      `auth state: isAuthenticated=${isAuthenticated} evmAddress=${evmAddress ?? "none"}`,
+    );
+  }, [isAuthenticated, evmAddress]);
+
   // Once authenticated AND the EVM wallet has materialized, go home.
   useEffect(() => {
     if (isAuthenticated && evmAddress) {
+      dbg("info", "authenticated + evm ready → navigating home");
       notify("success");
       navigate({ to: "/" });
     }
@@ -36,6 +47,7 @@ function SignInPage() {
 
   async function doSignIn() {
     setError(null);
+    dbg("info", `doSignIn: hasToken=${hasAuthToken()}`);
 
     // Dynamic reads ?telegramAuthToken from the LAUNCH url. If it's absent, the
     // app was opened from the bot's menu button / direct link instead of the
@@ -53,8 +65,11 @@ function SignInPage() {
     try {
       // forceCreateUser: true so a brand-new Telegram user gets a wallet
       // provisioned on first tap (the "seamless onboarding" in the plan).
+      dbg("info", "telegramSignIn() calling…");
       await telegramSignIn({ forceCreateUser: true });
+      dbg("info", "telegramSignIn() returned ok");
     } catch (e) {
+      dbg("error", `telegramSignIn threw: ${String(e)}`);
       console.error("Telegram sign-in failed", e);
       setError(
         e instanceof Error ? e.message : "Sign-in failed. Please try again.",
@@ -117,6 +132,9 @@ function SignInPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* TEMP DEBUG: remove before the Loom. */}
+      <DebugReadout label="sign-in" />
     </main>
   );
 }
