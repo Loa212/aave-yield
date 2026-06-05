@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# gh-image — download a GitHub user-attachments image using the gh CLI's token.
+#
+# Usage: gh-image <url> [output-path]
+# If output-path is omitted, writes to /tmp/gh-image-<sha1>.<ext> and prints
+# the path on stdout so Claude Code can read it.
+
+set -euo pipefail
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+  echo "usage: gh-image <url> [output-path]" >&2
+  exit 2
+fi
+
+url="$1"
+out="${2:-}"
+
+case "$url" in
+  https://github.com/user-attachments/*) ;;
+  *)
+    echo "error: only https://github.com/user-attachments/ URLs are supported (got: $url)" >&2
+    exit 2
+    ;;
+esac
+
+if ! command -v gh >/dev/null 2>&1; then
+  echo "error: gh CLI not found in PATH. Install: https://cli.github.com/" >&2
+  exit 1
+fi
+
+token="$(gh auth token 2>/dev/null || true)"
+if [[ -z "$token" ]]; then
+  echo "error: gh has no stored token. Run: gh auth login" >&2
+  exit 1
+fi
+
+if [[ -z "$out" ]]; then
+  hash="$(printf '%s' "$url" | shasum | cut -c1-12)"
+  out="/tmp/gh-image-${hash}"
+fi
+
+# -L follows redirects. Modern curl (7.58+) strips Authorization on cross-origin
+# redirects, which is what we want — the GitHub CDN rejects it anyway.
+# -D writes response headers so we can sniff the final Content-Type and pick an
+# extension when the caller didn't supply one.
+headers="$(mktemp)"
+trap 'rm -f "$headers"' EXIT
+
+http_code="$(curl -sS -L \
+  -H "Authorization: token ${token}" \
+  -H "Accept: image/*" \
+  -H "User-Agent: gh-image/1.0" \
+  -D "$headers" \
+  -o "$out" \
+  -w "%{http_code}" \
+  "$url")"
+
+if [[ "$http_code" != "200" ]]; then
+  echo "error: upstream returned HTTP $http_code" >&2
+  rm -f "$out"
+  exit 1
+fi
+
+# If caller didn't pick an extension, append one based on Content-Type.
+# The GitHub CDN sometimes returns a generic/missing Content-Type for image
+# blobs, so when the header is unhelpful we fall back to magic-byte sniffing
+# via `file` so the Read tool still recognizes the result as an image.
+if [[ -z "${2:-}" && "$out" != *.* ]]; then
+  ctype="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {print tolower($2)}' "$headers" | tail -1 | tr -d '\r;')"
+  case "$ctype" in
+    image/png)  ext="png" ;;
+    image/jpeg) ext="jpg" ;;
+    image/gif)  ext="gif" ;;
+    image/webp) ext="webp" ;;
+    image/svg*) ext="svg" ;;
+    *)          ext="" ;;
+  esac
+
+  if [[ -z "$ext" ]] && command -v file >/dev/null 2>&1; then
+    case "$(file -b --mime-type "$out" 2>/dev/null)" in
+      image/png)  ext="png" ;;
+      image/jpeg) ext="jpg" ;;
+      image/gif)  ext="gif" ;;
+      image/webp) ext="webp" ;;
+      image/svg*) ext="svg" ;;
+    esac
+  fi
+
+  [[ -z "$ext" ]] && ext="bin"
+  mv "$out" "${out}.${ext}"
+  out="${out}.${ext}"
+fi
+
+echo "$out"
