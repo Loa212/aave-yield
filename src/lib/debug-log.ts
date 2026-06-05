@@ -28,10 +28,48 @@ export function subscribeDebug(fn: () => void): () => void {
 
 let installed = false;
 
+/** Probe whether storage APIs Dynamic's keychain needs actually work here. */
+async function probeStorage() {
+  // localStorage
+  try {
+    window.localStorage.setItem("__probe", "1");
+    window.localStorage.removeItem("__probe");
+    dbg("info", "localStorage: OK");
+  } catch (e) {
+    dbg(
+      "error",
+      `localStorage: BLOCKED ${e instanceof Error ? e.message : ""}`,
+    );
+  }
+  // IndexedDB (Dynamic's session keychain lives here)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open("__probe_db", 1);
+      req.onsuccess = () => {
+        req.result.close();
+        indexedDB.deleteDatabase("__probe_db");
+        resolve();
+      };
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => reject(new Error("blocked"));
+    });
+    dbg("info", "indexedDB: OK");
+  } catch (e) {
+    dbg("error", `indexedDB: BLOCKED ${e instanceof Error ? e.message : ""}`);
+  }
+  // crypto.subtle (keypair generation)
+  dbg(
+    "info",
+    `crypto.subtle: ${typeof crypto !== "undefined" && crypto.subtle ? "present" : "MISSING"}`,
+  );
+}
+
 /** Install global error + fetch interceptors. Idempotent. Call once at boot. */
 export function installDebugCapture() {
   if (installed || typeof window === "undefined") return;
   installed = true;
+
+  void probeStorage();
 
   window.addEventListener("error", (e) => {
     dbg("error", `window.error: ${e.message}`);
