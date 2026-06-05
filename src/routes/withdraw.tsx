@@ -10,6 +10,7 @@ import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
 import { useOmnistonQuote } from "@/hooks/use-omniston-quote";
 import { useUsdcSupplyBalance } from "@/hooks/use-usdc-supply-balance";
 import { useWithdraw, type WithdrawStage } from "@/hooks/use-withdraw";
+import { useBackButton } from "@/hooks/use-back-button";
 import { USDC_DECIMALS } from "@/lib/aave";
 import { formatUsd } from "@/lib/utils";
 import { impact, notify } from "@/lib/telegram";
@@ -46,6 +47,7 @@ function stageToIndex(stage: WithdrawStage): number {
 
 function WithdrawPage() {
   const navigate = useNavigate();
+  useBackButton("/");
   const { evmAddress, tonAddress } = useDynamicWallet();
   const balance = useUsdcSupplyBalance(evmAddress);
   const supplied = balance.data?.supplied ?? 0;

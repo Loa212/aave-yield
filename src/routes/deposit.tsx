@@ -12,6 +12,7 @@ import {
   USDT_TON_DECIMALS,
 } from "@/hooks/use-omniston-quote";
 import { useDeposit, type DepositStage } from "@/hooks/use-deposit";
+import { useBackButton } from "@/hooks/use-back-button";
 import { USDC_DECIMALS } from "@/lib/aave";
 import { formatUsd } from "@/lib/utils";
 import { impact, notify } from "@/lib/telegram";
@@ -48,6 +49,7 @@ function stageToIndex(stage: DepositStage): number {
 
 function DepositPage() {
   const navigate = useNavigate();
+  useBackButton("/");
   const { tonAddress } = useDynamicWallet();
   const [amount, setAmount] = useState("");
   const { quote, isFetching, noQuote } = useOmnistonQuote("deposit", amount);

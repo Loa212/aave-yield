@@ -8,6 +8,7 @@ import { TonWalletConnectors } from "@dynamic-labs/ton";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { OmnistonProvider } from "@ston-fi/omniston-sdk-react";
 import { omniston } from "@/lib/omniston";
+import { ToastProvider } from "@/components/toast";
 
 // Dynamic environment ID. Set VITE_DYNAMIC_ENVIRONMENT_ID in Vercel / .env.local.
 // Without it, Dynamic renders an error widget rather than crashing the app.
@@ -44,7 +45,9 @@ export function Providers({ children }: PropsWithChildren) {
             distinct from ours. Letting OmnistonProvider spin up its own internal
             client for its observable RFQ/order queries avoids the type clash and
             costs nothing — the two client instances don't need to be shared. */}
-        <OmnistonProvider omniston={omniston}>{children}</OmnistonProvider>
+        <OmnistonProvider omniston={omniston}>
+          <ToastProvider>{children}</ToastProvider>
+        </OmnistonProvider>
       </QueryClientProvider>
     </DynamicContextProvider>
   );

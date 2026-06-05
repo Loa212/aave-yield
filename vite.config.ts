@@ -31,4 +31,19 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5174,
   },
+  build: {
+    // The Dynamic + wallet-connector bundle is large; split heavy vendors into
+    // their own chunks so the initial parse isn't one 6MB file. Doesn't change
+    // total bytes, just improves caching + first-load parse on mobile.
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          dynamic: ["@dynamic-labs/sdk-react-core", "@dynamic-labs/ethereum", "@dynamic-labs/ton"],
+          omniston: ["@ston-fi/omniston-sdk", "@ston-fi/omniston-sdk-react"],
+          viem: ["viem"],
+        },
+      },
+    },
+  },
 });

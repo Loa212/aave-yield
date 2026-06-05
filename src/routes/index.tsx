@@ -2,9 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { BalanceCard } from "@/components/balance-card";
 import { MarketRow } from "@/components/market-row";
+import { SettingsSheet } from "@/components/settings-sheet";
+import { useEffect } from "react";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
 import { useAaveMarkets } from "@/hooks/use-aave-markets";
 import { useUsdcSupplyBalance } from "@/hooks/use-usdc-supply-balance";
+import { useToast } from "@/components/toast";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -14,6 +17,11 @@ function HomePage() {
   const { evmAddress } = useDynamicWallet();
   const markets = useAaveMarkets();
   const balance = useUsdcSupplyBalance(evmAddress);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (markets.isError) toast("Couldn't load Aave markets", "error");
+  }, [markets.isError, toast]);
 
   // USDC APY for the balance card: prefer the balance query's reading, fall
   // back to the markets list so the card isn't blank while one query loads.
@@ -31,6 +39,7 @@ function HomePage() {
             USD yield on your USDT-TON
           </p>
         </div>
+        <SettingsSheet />
       </header>
 
       <BalanceCard
