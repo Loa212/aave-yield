@@ -1,13 +1,13 @@
-import { useMemo } from "react";
 import {
-  useRfq,
-  SettlementMethod,
-  type QuoteRequest,
   type Quote,
+  type QuoteRequest,
+  SettlementMethod,
+  useRfq,
 } from "@ston-fi/omniston-sdk-react";
+import { useMemo } from "react";
 import { parseUnits } from "viem";
-import { ASSET_USDC_BASE, ASSET_USDT_TON } from "@/lib/omniston";
 import { USDC_DECIMALS } from "@/lib/aave";
+import { ASSET_USDC_BASE, ASSET_USDT_TON } from "@/lib/omniston";
 
 // USDT on TON has 6 decimals (matches USDC). Kept local since it's the only TON
 // asset we touch.
@@ -48,9 +48,7 @@ export function useOmnistonQuote(
         $case: "inputUnits",
         value: parseUnits(inputAmount, inputDecimals).toString(),
       },
-      settlementParams: [
-        { params: { $case: "order", value: {} } },
-      ],
+      settlementParams: [{ params: { $case: "order", value: {} } }],
     } satisfies QuoteRequest;
   }, [direction, inputAmount]);
 

@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 import { BalanceCard } from "@/components/balance-card";
 import { MarketRow } from "@/components/market-row";
 import { SettingsSheet } from "@/components/settings-sheet";
-import { useEffect } from "react";
-import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
-import { useAaveMarkets } from "@/hooks/use-aave-markets";
-import { useUsdcSupplyBalance } from "@/hooks/use-usdc-supply-balance";
 import { useToast } from "@/components/toast";
+import { useAaveMarkets } from "@/hooks/use-aave-markets";
+import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
+import { useUsdcSupplyBalance } from "@/hooks/use-usdc-supply-balance";
 
 export const Route = createFileRoute("/")({
   component: HomePage,

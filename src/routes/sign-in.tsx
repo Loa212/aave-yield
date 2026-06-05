@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useTelegramLogin } from "@dynamic-labs/sdk-react-core";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
@@ -47,17 +47,15 @@ function SignInPage() {
 
   // Inside Telegram we can auth in one tap with no UI friction — attempt it
   // automatically once the SDK is ready. Outside TG we wait for a manual tap.
+  // doSignIn is intentionally excluded from deps: this must fire once on
+  // readiness, not re-run when the callback identity changes; autoTried guards
+  // single-shot.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
   useEffect(() => {
-    if (
-      sdkHasLoaded &&
-      !isAuthenticated &&
-      !autoTried &&
-      isInsideTelegram()
-    ) {
+    if (sdkHasLoaded && !isAuthenticated && !autoTried && isInsideTelegram()) {
       setAutoTried(true);
       void doSignIn();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sdkHasLoaded, isAuthenticated, autoTried]);
 
   return (

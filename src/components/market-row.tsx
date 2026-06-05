@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
-import { cn, formatApy } from "@/lib/utils";
 import type { AaveMarket } from "@/hooks/use-aave-markets";
+import { cn, formatApy } from "@/lib/utils";
 
 /** One Aave market row: symbol, supply APY, interactive vs "Coming soon". */
 export function MarketRow({ market }: { market: AaveMarket }) {

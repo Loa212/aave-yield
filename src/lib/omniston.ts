@@ -1,5 +1,5 @@
-import { Omniston } from "@ston-fi/omniston-sdk-react";
 import type { AssetId, ChainAddress } from "@ston-fi/omniston-sdk";
+import { Omniston } from "@ston-fi/omniston-sdk-react";
 
 // STON.fi Omniston WebSocket endpoint (cross-chain quotes + HTLC orders).
 export const OMNISTON_API_URL = "wss://omni-ws.ston.fi";

@@ -7,7 +7,11 @@
     "dev": "vite --host 0.0.0.0 --port 5174",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "format": "biome format --write",
+    "ci": "bun run lint && bun run typecheck && vite build"
   },
   "dependencies": {
     "@bgd-labs/aave-address-book": "4.44.22",
@@ -33,6 +37,7 @@
     "@tanstack/react-query": "5.101.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.16",
     "@tailwindcss/vite": "4.3.0",
     "@tanstack/router-plugin": "1.168.14",
     "@types/node": "22.13.0",

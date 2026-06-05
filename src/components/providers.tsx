@@ -1,14 +1,14 @@
-import { type PropsWithChildren } from "react";
-import {
-  DynamicContextProvider,
-  type DynamicContextProps,
-} from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
+import {
+  type DynamicContextProps,
+  DynamicContextProvider,
+} from "@dynamic-labs/sdk-react-core";
 import { TonWalletConnectors } from "@dynamic-labs/ton";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { OmnistonProvider } from "@ston-fi/omniston-sdk-react";
-import { omniston } from "@/lib/omniston";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { PropsWithChildren } from "react";
 import { ToastProvider } from "@/components/toast";
+import { omniston } from "@/lib/omniston";
 
 // Dynamic environment ID. Set VITE_DYNAMIC_ENVIRONMENT_ID in Vercel / .env.local.
 // Without it, Dynamic renders an error widget rather than crashing the app.

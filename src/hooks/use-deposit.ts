@@ -1,20 +1,16 @@
-import { useCallback, useRef, useState } from "react";
-import { useOmniston } from "@ston-fi/omniston-sdk-react";
 import { isHtlcOrderQuote, type Quote } from "@ston-fi/omniston-sdk";
+import { useOmniston } from "@ston-fi/omniston-sdk-react";
+import { useCallback, useRef, useState } from "react";
 import { base } from "viem/chains";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
-import { generateHtlcHashlock, generateHtlcSecret } from "@/lib/htlc";
 import {
-  baseChainAddress,
-  hexToBase64,
-  tonChainAddress,
-} from "@/lib/omniston";
-import {
-  USDC_DECIMALS,
   approveAndSupply,
   readUsdcBalance,
+  USDC_DECIMALS,
   waitForUsdcArrival,
 } from "@/lib/aave";
+import { generateHtlcHashlock, generateHtlcSecret } from "@/lib/htlc";
+import { baseChainAddress, hexToBase64, tonChainAddress } from "@/lib/omniston";
 
 /** Stages the deposit UI surfaces, in order. */
 export type DepositStage =
@@ -55,8 +51,13 @@ const INITIAL: DepositState = {
  */
 export function useDeposit() {
   const omniston = useOmniston();
-  const { evmAddress, tonAddress, tonWallet, sendTonMessages, getEvmWalletClient } =
-    useDynamicWallet();
+  const {
+    evmAddress,
+    tonAddress,
+    tonWallet,
+    sendTonMessages,
+    getEvmWalletClient,
+  } = useDynamicWallet();
   const [state, setState] = useState<DepositState>(INITIAL);
   const trackUnsubRef = useRef<(() => void) | null>(null);
 

@@ -1,11 +1,11 @@
 import {
+  type Address,
   encodeAbiParameters,
   hexToBytes,
   parseAbiParameters,
   parseSignature,
   serializeCompactSignature,
   signatureToCompactSignature,
-  type Address,
   type WalletClient,
 } from "viem";
 import { base } from "viem/chains";

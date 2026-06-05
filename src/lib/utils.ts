@@ -1,4 +1,4 @@
-import { clsx, type ClassValue } from "clsx";
+import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 /** shadcn class-merge helper. */
@@ -7,7 +7,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /** Format a number as USD, e.g. 12.3 -> "$12.30". */
-export function formatUsd(value: number, opts?: Intl.NumberFormatOptions): string {
+export function formatUsd(
+  value: number,
+  opts?: Intl.NumberFormatOptions,
+): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",

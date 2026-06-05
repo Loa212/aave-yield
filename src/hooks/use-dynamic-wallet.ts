@@ -1,13 +1,13 @@
-import { useMemo } from "react";
+import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import {
   useDynamicContext,
   useIsLoggedIn,
   useUserWallets,
 } from "@dynamic-labs/sdk-react-core";
-import { isEthereumWallet } from "@dynamic-labs/ethereum";
-import { isTonWallet } from "@dynamic-labs/ton";
 import type { TonWallet, TonWalletConnector } from "@dynamic-labs/ton";
+import { isTonWallet } from "@dynamic-labs/ton";
 import type { Wallet } from "@dynamic-labs/wallet-connector-core";
+import { useMemo } from "react";
 import type { Address, WalletClient } from "viem";
 
 /** A single TonConnect-shaped message (what tonBuildEscrowTransfer emits). */

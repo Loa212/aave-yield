@@ -1,6 +1,6 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { Providers } from "@/components/providers";
 import { AuthGate } from "@/components/auth-gate";
+import { Providers } from "@/components/providers";
 
 export const Route = createRootRoute({
   component: RootComponent,

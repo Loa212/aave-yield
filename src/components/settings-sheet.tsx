@@ -1,6 +1,8 @@
-import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Check, Copy, ExternalLink, LogOut, Settings } from "lucide-react";
+import { useState } from "react";
+import { useToast } from "@/components/toast";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -8,11 +10,9 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
-import { useToast } from "@/components/toast";
-import { shortenAddress } from "@/lib/utils";
 import { impact } from "@/lib/telegram";
+import { shortenAddress } from "@/lib/utils";
 
 /** EOA address, sign out, and credits. Opened from the home header gear icon. */
 export function SettingsSheet() {
@@ -56,7 +56,9 @@ export function SettingsSheet() {
             copied={copied === "evm"}
             onCopy={() => evmAddress && copy(evmAddress, "evm")}
             explorerHref={
-              evmAddress ? `https://basescan.org/address/${evmAddress}` : undefined
+              evmAddress
+                ? `https://basescan.org/address/${evmAddress}`
+                : undefined
             }
           />
           <AddressRow
@@ -70,11 +72,7 @@ export function SettingsSheet() {
           />
         </div>
 
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={handleSignOut}
-        >
+        <Button variant="outline" className="w-full" onClick={handleSignOut}>
           <LogOut className="h-4 w-4" />
           Sign out
         </Button>

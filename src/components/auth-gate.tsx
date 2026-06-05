@@ -1,6 +1,6 @@
-import { type PropsWithChildren, useEffect } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
+import { type PropsWithChildren, useEffect } from "react";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
 
 /**

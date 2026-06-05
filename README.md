@@ -60,6 +60,19 @@ bun run dev                     # http://localhost:5174
 bun run build                   # tsc --noEmit && vite build
 ```
 
+### Lint, format, CI
+
+```bash
+bun run lint        # Biome check (lint + format + import order), no writes
+bun run lint:fix    # apply Biome's safe fixes
+bun run format      # format only
+bun run ci          # what CI runs: lint → typecheck → build (run before pushing)
+```
+
+CI (`.github/workflows/ci.yml`) runs the same three steps as separate stages on
+push/PR. Biome is configured (`biome.json`) to skip `.tmp`, `dist`, and the
+generated `routeTree.gen.ts`.
+
 Outside Telegram the app runs in a browser but Telegram-native auth/haptics no-op. See **[DEPLOY.md](DEPLOY.md)** for Vercel + Dynamic dashboard + BotFather setup.
 
 ## Notes & decisions

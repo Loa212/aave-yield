@@ -1,26 +1,30 @@
-import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowDown, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
+import { type ProgressStep, TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { TxProgress, type ProgressStep } from "@/components/tx-progress";
+import { useBackButton } from "@/hooks/use-back-button";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
 import { useOmnistonQuote } from "@/hooks/use-omniston-quote";
 import { useUsdcSupplyBalance } from "@/hooks/use-usdc-supply-balance";
 import { useWithdraw, type WithdrawStage } from "@/hooks/use-withdraw";
-import { useBackButton } from "@/hooks/use-back-button";
 import { USDC_DECIMALS } from "@/lib/aave";
-import { formatUsd } from "@/lib/utils";
 import { impact, notify } from "@/lib/telegram";
+import { formatUsd } from "@/lib/utils";
 
 export const Route = createFileRoute("/withdraw")({
   component: WithdrawPage,
 });
 
 const STEPS: ProgressStep[] = [
-  { key: "withdrawing", label: "Withdrawing from Aave", hint: "Confirm on Base" },
+  {
+    key: "withdrawing",
+    label: "Withdrawing from Aave",
+    hint: "Confirm on Base",
+  },
   { key: "ordering", label: "Signing the bridge order", hint: "One signature" },
   {
     key: "settling",

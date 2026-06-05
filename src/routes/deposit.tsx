@@ -1,28 +1,32 @@
-import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowDown, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
+import { type ProgressStep, TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { TxProgress, type ProgressStep } from "@/components/tx-progress";
+import { useBackButton } from "@/hooks/use-back-button";
+import { type DepositStage, useDeposit } from "@/hooks/use-deposit";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
 import {
-  useOmnistonQuote,
   USDT_TON_DECIMALS,
+  useOmnistonQuote,
 } from "@/hooks/use-omniston-quote";
-import { useDeposit, type DepositStage } from "@/hooks/use-deposit";
-import { useBackButton } from "@/hooks/use-back-button";
 import { USDC_DECIMALS } from "@/lib/aave";
-import { formatUsd } from "@/lib/utils";
 import { impact, notify } from "@/lib/telegram";
+import { formatUsd } from "@/lib/utils";
 
 export const Route = createFileRoute("/deposit")({
   component: DepositPage,
 });
 
 const STEPS: ProgressStep[] = [
-  { key: "bridging", label: "Bridging from TON", hint: "Confirm in your wallet" },
+  {
+    key: "bridging",
+    label: "Bridging from TON",
+    hint: "Confirm in your wallet",
+  },
   {
     key: "settling",
     label: "Settling on Base",
@@ -66,10 +70,7 @@ function DepositPage() {
   }, [state.stage]);
 
   const canConfirm =
-    !running &&
-    Boolean(quote) &&
-    Number(amount) > 0 &&
-    Boolean(tonAddress);
+    !running && Boolean(quote) && Number(amount) > 0 && Boolean(tonAddress);
 
   function onConfirm() {
     if (!quote) return;
@@ -129,9 +130,7 @@ function DepositPage() {
                 inputMode="decimal"
                 placeholder="0.00"
                 value={amount}
-                onChange={(e) =>
-                  setAmount(sanitizeAmount(e.target.value))
-                }
+                onChange={(e) => setAmount(sanitizeAmount(e.target.value))}
                 className="text-lg"
               />
               <span className="shrink-0 font-medium text-muted-foreground">
@@ -168,8 +167,8 @@ function DepositPage() {
       </Card>
 
       <p className="px-1 text-xs text-muted-foreground">
-        Your USDT bridges from TON to USDC on Base via STON.fi's HTLC swap
-        (~2–5 min), then is supplied to Aave V3 to earn yield. You'll sign the
+        Your USDT bridges from TON to USDC on Base via STON.fi's HTLC swap (~2–5
+        min), then is supplied to Aave V3 to earn yield. You'll sign the
         transfer in your TON wallet.
       </p>
 

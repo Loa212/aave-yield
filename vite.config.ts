@@ -1,9 +1,9 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
-import path from "node:path";
 
 // NOTE: Omniston SDK + TON libs (@ston-fi/omniston-sdk, @dynamic-labs/ton) pull in
 // `buffer`/`crypto`/`stream` Node builtins at runtime. Without node-polyfills the
@@ -39,7 +39,11 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          dynamic: ["@dynamic-labs/sdk-react-core", "@dynamic-labs/ethereum", "@dynamic-labs/ton"],
+          dynamic: [
+            "@dynamic-labs/sdk-react-core",
+            "@dynamic-labs/ethereum",
+            "@dynamic-labs/ton",
+          ],
           omniston: ["@ston-fi/omniston-sdk", "@ston-fi/omniston-sdk-react"],
           viem: ["viem"],
         },

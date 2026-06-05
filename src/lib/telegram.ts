@@ -1,11 +1,11 @@
 import {
+  backButton,
+  hapticFeedback,
   init,
   initData,
   miniApp,
   themeParams,
   viewport,
-  backButton,
-  hapticFeedback,
 } from "@telegram-apps/sdk-react";
 
 let initialized = false;

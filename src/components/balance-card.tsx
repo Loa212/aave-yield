@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowDownToLine, ArrowUpFromLine, TrendingUp } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatApy, formatUsd } from "@/lib/utils";
 
 interface BalanceCardProps {

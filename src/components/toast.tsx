@@ -1,12 +1,12 @@
+import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import {
   createContext,
+  type PropsWithChildren,
   useCallback,
   useContext,
   useRef,
   useState,
-  type PropsWithChildren,
 } from "react";
-import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ToastVariant = "success" | "error" | "info";
@@ -50,6 +50,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
         {toasts.map((t) => (
           <button
             key={t.id}
+            type="button"
             onClick={() => dismiss(t.id)}
             className={cn(
               "pointer-events-auto flex w-full max-w-sm items-center gap-2.5 rounded-lg border px-4 py-3 text-sm shadow-lg backdrop-blur",

@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  BASE_ASSETS,
   AAVE_BASE_POOL,
-  RESERVE_DATA_ABI,
-  apyFromLiquidityRate,
-  baseClient,
   type AaveAsset,
+  apyFromLiquidityRate,
+  BASE_ASSETS,
+  baseClient,
+  RESERVE_DATA_ABI,
 } from "@/lib/aave";
 
 export interface AaveMarket extends AaveAsset {

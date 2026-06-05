@@ -1,12 +1,12 @@
 import { AaveV3Base } from "@bgd-labs/aave-address-book";
 import {
+  type Address,
   createPublicClient,
   fallback,
   http,
   maxUint256,
-  type Address,
-  type WalletClient,
   parseAbi,
+  type WalletClient,
 } from "viem";
 import { base } from "viem/chains";
 
@@ -119,8 +119,7 @@ export const BASE_ASSETS: AaveAsset[] = (
  * This matches @aave/math-utils' RAY_DECIMALS / rayPow approach.
  */
 export function apyFromLiquidityRate(liquidityRate: bigint): number {
-  const ratePerSecond =
-    Number(liquidityRate) / Number(RAY) / SECONDS_PER_YEAR;
+  const ratePerSecond = Number(liquidityRate) / Number(RAY) / SECONDS_PER_YEAR;
   return (1 + ratePerSecond) ** SECONDS_PER_YEAR - 1;
 }
 

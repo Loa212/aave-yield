@@ -1,8 +1,8 @@
+import { createRouter, RouterProvider } from "@tanstack/react-router";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
-import { routeTree } from "./routeTree.gen";
 import { initTelegram } from "./lib/telegram";
+import { routeTree } from "./routeTree.gen";
 import "./index.css";
 
 // HTML5 history (default) — NOT hash mode. Hash routing clobbers the

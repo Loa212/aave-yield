@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { formatUnits, type Address } from "viem";
+import { type Address, formatUnits } from "viem";
 import {
-  AUSDC_BASE,
-  USDC_BASE,
-  USDC_DECIMALS,
   AAVE_BASE_POOL,
-  ERC20_ABI,
-  RESERVE_DATA_ABI,
+  AUSDC_BASE,
   apyFromLiquidityRate,
   baseClient,
+  ERC20_ABI,
+  RESERVE_DATA_ABI,
+  USDC_BASE,
+  USDC_DECIMALS,
 } from "@/lib/aave";
 
 export interface UsdcSupplyBalance {
