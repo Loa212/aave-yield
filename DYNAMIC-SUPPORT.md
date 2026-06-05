@@ -35,8 +35,20 @@ So the **bot token matches** (not 422) and the **Telegram data-check hash is val
 **Ruled out client-side:**
 - Storage: `localStorage`, `indexedDB`, `crypto.subtle` all OK in the WebView.
 - SDK init completes (`sdkHasLoaded: true`); no errors before signin.
-- `generateSessionKeys()` is local-only (no registration POST) — `sessionPublicKey`
-  is sent in the signin body.
+- The signin request body is complete:
+  `{ telegramAuthToken (valid), forceCreateUser, sessionPublicKey (SET) }`.
+  So `sessionPublicKey` is NOT empty.
+- Embedded Wallets enabled for Ethereum AND TON; "Create on sign up" on.
+
+**Network sequence (the key clue):**
+```
+GET  /api/v0/sdk/{env}/settings        → 200   (bootstrap)
+POST /api/v0/sdk/{env}/telegram/signin → 400 "Invalid or expired OAuth state"
+GET  /api/v0/sdk/{env}/nonce           → 200   (fetched AFTER the 400, not before)
+```
+The `/nonce` call happens AFTER signin. So at signin time no nonce/OAuth-state
+session is established — which looks like the cause of the 400. There is no
+state-registration call before `/telegram/signin`.
 
 **Questions:**
 1. What establishes the "OAuth state" the signin endpoint validates, and why would it be
