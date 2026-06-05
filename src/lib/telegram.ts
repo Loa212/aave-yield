@@ -11,6 +11,35 @@ import {
 let initialized = false;
 
 /**
+ * Mount a TG component that Dynamic's SDK might already be mounting. Guards on
+ * isMounted() and swallows the `ConcurrentCallError` ("already mounting") that
+ * fires when Dynamic's embedded @telegram-apps/sdk mounts the same component
+ * concurrently — that unhandled rejection was crashing Dynamic's init.
+ *
+ * mount() returns an AbortablePromise that can REJECT (not just throw sync), so
+ * we attach a .catch on the returned value too.
+ */
+function safeMount(component: {
+  isMounted: () => boolean;
+  mount: () => unknown;
+}) {
+  if (component.isMounted()) return;
+  try {
+    const maybePromise = component.mount();
+    if (
+      maybePromise &&
+      typeof (maybePromise as { catch?: unknown }).catch === "function"
+    ) {
+      (maybePromise as Promise<unknown>).catch(() => {
+        // ConcurrentCallError — Dynamic owns the mount, ignore.
+      });
+    }
+  } catch {
+    // sync throw variant — ignore.
+  }
+}
+
+/**
  * Initialize the Telegram Mini App SDK.
  *
  * IMPORTANT (Polygram lesson): call this and AWAIT it before rendering React.
@@ -31,16 +60,22 @@ export async function initTelegram(): Promise<void> {
 
     backButton.mount.ifAvailable();
 
+    // IMPORTANT: @dynamic-labs/ton embeds @telegram-apps/sdk and ALSO mounts
+    // themeParams / miniApp / viewport. Mounting them a second time throws
+    // `ConcurrentCallError: ... already mounting`, whose unhandled rejection
+    // killed Dynamic's init (sdkHasLoaded stuck false in the TG WebView).
+    // Guard every mount on isMounted() so we coexist regardless of who runs
+    // first, and only bind CSS vars once mounted.
     if (miniApp.mount.isAvailable()) {
-      themeParams.mount();
-      miniApp.mount();
+      safeMount(themeParams);
+      safeMount(miniApp);
       // Map TG theme params -> CSS vars; our own tokens override the look but
       // this keeps native chrome (header) consistent.
-      themeParams.bindCssVars();
-      miniApp.bindCssVars();
+      if (themeParams.isMounted()) themeParams.bindCssVars();
+      if (miniApp.isMounted()) miniApp.bindCssVars();
     }
 
-    if (viewport.mount.isAvailable()) {
+    if (viewport.mount.isAvailable() && !viewport.isMounted()) {
       await viewport
         .mount({ timeout: 3000 })
         .then(() => {
