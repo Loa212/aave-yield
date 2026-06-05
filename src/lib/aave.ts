@@ -53,16 +53,58 @@ export const ERC20_ABI = parseAbi([
 ]);
 
 /**
- * UI Pool Data Provider: getReservesData(provider) returns
- * [aggregatedReserveData[], baseCurrencyInfo].
- * We only read the per-reserve fields we display. liquidityRate is a RAY-scaled
- * per-second-ish APR (see apyFromLiquidityRate for the conversion).
+ * Pool.getReserveData(asset) → ReserveData.
+ *
+ * NOTE: We deliberately do NOT use the UI Pool Data Provider's getReservesData.
+ * The deployed UiPoolDataProvider on Base returns an AggregatedReserveData
+ * struct whose layout no longer matches the ABI shipped in the current
+ * @bgd-labs/aave-address-book — viem fails to decode it (a bool field lands on
+ * non-bool bytes). The Pool's ReserveData struct is part of the core protocol
+ * and its layout is stable; reading it per-asset decodes cleanly. Verified live
+ * against Base mainnet: USDC ~3.3% APY, aToken matches the address book.
+ *
+ * currentLiquidityRate is the supply APR in RAY; convert via apyFromLiquidityRate.
  */
-export const UI_POOL_DATA_PROVIDER_ABI = parseAbi([
-  "struct AggregatedReserveData { address underlyingAsset; string name; string symbol; uint256 decimals; uint256 baseLTVasCollateral; uint256 reserveLiquidationThreshold; uint256 reserveLiquidationBonus; uint256 reserveFactor; bool usageAsCollateralEnabled; bool borrowingEnabled; bool stableBorrowRateEnabled; bool isActive; bool isFrozen; uint128 liquidityIndex; uint128 variableBorrowIndex; uint128 liquidityRate; uint128 variableBorrowRate; uint128 stableBorrowRate; uint40 lastUpdateTimestamp; address aTokenAddress; address stableDebtTokenAddress; address variableDebtTokenAddress; address interestRateStrategyAddress; uint256 availableLiquidity; uint256 totalPrincipalStableDebt; uint256 averageStableRate; uint256 stableDebtLastUpdateTimestamp; uint256 totalScaledVariableDebt; uint256 priceInMarketReferenceCurrency; address priceOracle; uint256 variableRateSlope1; uint256 variableRateSlope2; uint256 stableRateSlope1; uint256 stableRateSlope2; uint256 baseStableBorrowRate; uint256 baseVariableBorrowRate; uint256 optimalUsageRatio; bool isPaused; bool isSiloedBorrowing; uint128 accruedToTreasury; uint128 unbacked; uint128 isolationModeTotalDebt; bool flashLoanEnabled; uint256 debtCeiling; uint256 debtCeilingDecimals; uint8 eModeCategoryId; uint256 borrowCap; uint256 supplyCap; uint8 eModeLtv; uint8 eModeLiquidationThreshold; uint8 eModeLiquidationBonus; address eModePriceSource; string eModeLabel; bool borrowableInIsolation; uint128 virtualUnderlyingBalance }",
-  "struct BaseCurrencyInfo { uint256 marketReferenceCurrencyUnit; int256 marketReferenceCurrencyPriceInUsd; int256 networkBaseTokenPriceInUsd; uint8 networkBaseTokenPriceDecimals }",
-  "function getReservesData(address provider) view returns (AggregatedReserveData[], BaseCurrencyInfo)",
+export const RESERVE_DATA_ABI = parseAbi([
+  "struct ReserveConfigurationMap { uint256 data }",
+  "struct ReserveData { ReserveConfigurationMap configuration; uint128 liquidityIndex; uint128 currentLiquidityRate; uint128 variableBorrowIndex; uint128 currentVariableBorrowRate; uint128 currentStableBorrowRate; uint40 lastUpdateTimestamp; uint16 id; address aTokenAddress; address stableDebtTokenAddress; address variableDebtTokenAddress; address interestRateStrategyAddress; uint128 accruedToTreasury; uint128 unbacked; uint128 isolationModeTotalDebt }",
+  "function getReserveData(address asset) view returns (ReserveData)",
 ]);
+
+/** Aave V3 Base markets we surface in the list. Only USDC is interactive in v1. */
+export interface AaveAsset {
+  symbol: string;
+  underlying: Address;
+  aToken: Address;
+  decimals: number;
+  interactive: boolean;
+}
+
+export const BASE_ASSETS: AaveAsset[] = (
+  [
+    "USDC",
+    "USDbC",
+    "WETH",
+    "cbETH",
+    "wstETH",
+    "cbBTC",
+    "EURC",
+    "GHO",
+    "AAVE",
+  ] as const
+).flatMap((sym) => {
+  const a = AaveV3Base.ASSETS[sym];
+  if (!a) return [];
+  return [
+    {
+      symbol: sym,
+      underlying: a.UNDERLYING as Address,
+      aToken: a.A_TOKEN as Address,
+      decimals: a.decimals,
+      interactive: sym === "USDC",
+    },
+  ];
+});
 
 /**
  * Convert Aave's RAY-scaled liquidityRate (per-second APR) into a compounded APY.
