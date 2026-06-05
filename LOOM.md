@@ -10,10 +10,17 @@ These came from the milestone real-device gates. Each is staged because it needs
 your accounts / phone / real funds.
 
 ### 0. Deploy & accounts (from DEPLOY.md)
-- [ ] Dynamic project created; Telegram login enabled; EVM (Base) + TON enabled.
+- [ ] Dynamic: Telegram login enabled with **Your credentials** (bot name + token
+      pasted); EVM (Base) + TON enabled; Cookie Auth Domain + CORS origins added.
 - [ ] `VITE_DYNAMIC_ENVIRONMENT_ID` set in Vercel (Production) and `.env.local`.
-- [ ] `vercel --prod` deployed; URL noted.
-- [ ] BotFather `@aave_yield_bot` Web App URL points at the Vercel URL.
+- [ ] `TELEGRAM_BOT_TOKEN` set in Vercel (server env).
+- [ ] BotFather: `/setdomain` → `app.dynamicauth.com`; Web App URL set.
+- [ ] `vercel --prod --force` deployed (cacheless so env vars inline); URL noted.
+- [ ] **Webhook registered**: `setWebhook` → `https://<app>.vercel.app/api/bot`,
+      confirmed via `getWebhookInfo`.
+- [ ] DM the bot `/start` → it replies with the "Open Aave Yield 🚀" button.
+      Auth ONLY works when launched from that button (it carries
+      `?telegramAuthToken=`).
 
 ### 1. iPhone launch (Milestone 2 gate)
 - [ ] Open `@aave_yield_bot` on iPhone. Force-close Telegram, reopen, tap launch.
