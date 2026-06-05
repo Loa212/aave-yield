@@ -3,7 +3,9 @@ import {
   createPublicClient,
   fallback,
   http,
+  maxUint256,
   type Address,
+  type WalletClient,
   parseAbi,
 } from "viem";
 import { base } from "viem/chains";
@@ -120,4 +122,106 @@ export function apyFromLiquidityRate(liquidityRate: bigint): number {
   const ratePerSecond =
     Number(liquidityRate) / Number(RAY) / SECONDS_PER_YEAR;
   return (1 + ratePerSecond) ** SECONDS_PER_YEAR - 1;
+}
+
+// --- Write helpers (take Dynamic's viem WalletClient on Base) ---
+
+/** Read the raw USDC balance of an address (base units). */
+export async function readUsdcBalance(owner: Address): Promise<bigint> {
+  return baseClient.readContract({
+    address: USDC_BASE,
+    abi: ERC20_ABI,
+    functionName: "balanceOf",
+    args: [owner],
+  });
+}
+
+/**
+ * Approve USDC for the Aave Pool if the current allowance is below `amount`,
+ * then supply `amount` USDC to Aave on behalf of `owner`. Returns the supply
+ * tx hash.
+ *
+ * ASSUMPTION: We approve max uint256 once so repeat deposits skip the approval
+ * tx. Standard practice for a Pool you interact with repeatedly; the user can
+ * always revoke. supplyWithPermit would avoid the separate approval entirely,
+ * but the deposit leg's USDC arrives fresh on the EOA so a one-time max approve
+ * is the simpler, more reliable path here (permit is used on the WITHDRAW leg
+ * where we sign for the Omniston order anyway).
+ */
+export async function approveAndSupply(
+  walletClient: WalletClient,
+  owner: Address,
+  amount: bigint,
+): Promise<`0x${string}`> {
+  const allowance = await baseClient.readContract({
+    address: USDC_BASE,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [owner, AAVE_BASE_POOL],
+  });
+
+  if (allowance < amount) {
+    const approveHash = await walletClient.writeContract({
+      account: owner,
+      chain: base,
+      address: USDC_BASE,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [AAVE_BASE_POOL, maxUint256],
+    });
+    await baseClient.waitForTransactionReceipt({ hash: approveHash });
+  }
+
+  const supplyHash = await walletClient.writeContract({
+    account: owner,
+    chain: base,
+    address: AAVE_BASE_POOL,
+    abi: POOL_ABI,
+    functionName: "supply",
+    args: [USDC_BASE, amount, owner, 0],
+  });
+  await baseClient.waitForTransactionReceipt({ hash: supplyHash });
+  return supplyHash;
+}
+
+/** Withdraw `amount` USDC (base units) from Aave to `owner`. */
+export async function withdrawFromAave(
+  walletClient: WalletClient,
+  owner: Address,
+  amount: bigint,
+): Promise<`0x${string}`> {
+  const hash = await walletClient.writeContract({
+    account: owner,
+    chain: base,
+    address: AAVE_BASE_POOL,
+    abi: POOL_ABI,
+    functionName: "withdraw",
+    args: [USDC_BASE, amount, owner],
+  });
+  await baseClient.waitForTransactionReceipt({ hash });
+  return hash;
+}
+
+/**
+ * Poll until the EOA's USDC balance grows by at least `minDelta` over the
+ * starting balance (i.e. the bridged USDC landed), or until timeout. Returns
+ * the delta that arrived.
+ */
+export async function waitForUsdcArrival(
+  owner: Address,
+  startBalance: bigint,
+  minDelta: bigint,
+  { timeoutMs = 15 * 60_000, intervalMs = 5_000 } = {},
+): Promise<bigint> {
+  const deadline = Date.now() + timeoutMs;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const current = await readUsdcBalance(owner);
+    const delta = current - startBalance;
+    if (delta >= minDelta) return delta;
+    if (Date.now() > deadline) {
+      throw new Error("Timed out waiting for bridged USDC to arrive on Base");
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
 }

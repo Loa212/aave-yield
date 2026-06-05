@@ -1,5 +1,5 @@
 import { Omniston } from "@ston-fi/omniston-sdk-react";
-import type { AssetId } from "@ston-fi/omniston-sdk";
+import type { AssetId, ChainAddress } from "@ston-fi/omniston-sdk";
 
 // STON.fi Omniston WebSocket endpoint (cross-chain quotes + HTLC orders).
 export const OMNISTON_API_URL = "wss://omni-ws.ston.fi";
@@ -26,6 +26,21 @@ export const ASSET_USDT_TON: AssetId = {
     value: { kind: { $case: "jetton", value: USDT_TON_JETTON } },
   },
 } as const;
+
+// --- ChainAddress builders (the slug-based discriminated union the SDK wants) ---
+export function baseChainAddress(address: string): ChainAddress {
+  return { chain: { $case: "base", value: address } };
+}
+
+export function tonChainAddress(address: string): ChainAddress {
+  return { chain: { $case: "ton", value: address } };
+}
+
+// hex BoC payload -> base64 for the TonConnect/Dynamic message shape. Buffer is
+// provided by vite-plugin-node-polyfills.
+export function hexToBase64(hex: string): string {
+  return Buffer.from(hex, "hex").toString("base64");
+}
 
 // Singleton client. The React OmnistonProvider takes this instance and exposes
 // it via useOmniston(); hooks (useRfq, useOrderTrack, …) read from there.

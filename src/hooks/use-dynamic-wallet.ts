@@ -6,8 +6,17 @@ import {
 } from "@dynamic-labs/sdk-react-core";
 import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { isTonWallet } from "@dynamic-labs/ton";
+import type { TonWallet, TonWalletConnector } from "@dynamic-labs/ton";
 import type { Wallet } from "@dynamic-labs/wallet-connector-core";
 import type { Address, WalletClient } from "viem";
+
+/** A single TonConnect-shaped message (what tonBuildEscrowTransfer emits). */
+export interface TonMessageInput {
+  address: string;
+  amount: string;
+  payload?: string;
+  stateInit?: string;
+}
 
 export interface DynamicWallet {
   /** True once Dynamic finished bootstrapping (auth state is known). */
@@ -20,10 +29,18 @@ export interface DynamicWallet {
   tonAddress: string | undefined;
   /** The raw Dynamic EVM wallet (for getWalletClient()). */
   evmWallet: Wallet | undefined;
-  /** The raw Dynamic TON wallet (for sendTransaction()). */
-  tonWallet: Wallet | undefined;
+  /** The raw Dynamic TON wallet (for sending escrow transfers). */
+  tonWallet: TonWallet | undefined;
   /** Get a viem WalletClient for signing on Base. Throws if no EVM wallet. */
   getEvmWalletClient: (chainId?: string) => Promise<WalletClient>;
+  /**
+   * Sign + send TonConnect-shaped messages via Dynamic's TON connector.
+   * Returns the resulting BoC. Throws if no TON wallet.
+   */
+  sendTonMessages: (
+    messages: TonMessageInput[],
+    validUntil: number,
+  ) => Promise<string>;
   /** Sign out everywhere. */
   signOut: () => Promise<void> | void;
 }
@@ -43,7 +60,7 @@ export function useDynamicWallet(): DynamicWallet {
 
   return useMemo(() => {
     const evmWallet = userWallets.find((w) => isEthereumWallet(w));
-    const tonWallet = userWallets.find((w) => isTonWallet(w));
+    const tonWallet = userWallets.find((w): w is TonWallet => isTonWallet(w));
 
     return {
       sdkHasLoaded,
@@ -57,6 +74,21 @@ export function useDynamicWallet(): DynamicWallet {
           throw new Error("No EVM wallet available from Dynamic");
         }
         return evmWallet.getWalletClient(chainId);
+      },
+      sendTonMessages: async (
+        messages: TonMessageInput[],
+        validUntil: number,
+      ) => {
+        if (!tonWallet) throw new Error("No TON wallet available from Dynamic");
+        // The base Wallet.connector getter widens to WalletConnector; for a
+        // TonWallet it's concretely a TonWalletConnector, which exposes
+        // sendTransaction(SendTransactionRequest). Narrow it back here.
+        const connector = tonWallet.connector as unknown as TonWalletConnector;
+        return connector.sendTransaction({
+          from: tonWallet.address,
+          validUntil,
+          messages,
+        });
       },
       signOut: handleLogOut,
     };
