@@ -1,7 +1,8 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
-import { type PropsWithChildren, useEffect } from "react";
+import { type PropsWithChildren, useEffect, useReducer, useState } from "react";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
+import { getDebugEntries, subscribeDebug } from "@/lib/debug-log";
 
 /**
  * Route-level auth gate.
@@ -27,7 +28,7 @@ export function AuthGate({ children }: PropsWithChildren) {
 
   if (!sdkHasLoaded) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         {/* TEMP DEBUG: surfaces why we're stuck when there's no console (TG WebView).
             Remove before the Loom. */}
@@ -50,6 +51,18 @@ export function AuthGate({ children }: PropsWithChildren) {
 
 // TEMP DEBUG: on-screen readout for the Telegram WebView (no console there).
 function DebugReadout({ sdkHasLoaded }: { sdkHasLoaded: boolean }) {
+  const [, force] = useReducer((n: number) => n + 1, 0);
+  const [elapsed, setElapsed] = useState(0);
+
+  // Re-render when new debug entries arrive.
+  useEffect(() => subscribeDebug(force), []);
+
+  // Elapsed-time watchdog so we can tell "slow" from "truly hung".
+  useEffect(() => {
+    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const url = typeof window !== "undefined" ? window.location.href : "";
   const hasToken = url.includes("telegramAuthToken=");
   const inTg = (() => {
@@ -60,13 +73,44 @@ function DebugReadout({ sdkHasLoaded }: { sdkHasLoaded: boolean }) {
     }
   })();
   const envId = import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID ?? "";
+  const entries = getDebugEntries();
+
   return (
-    <div className="max-w-xs break-words rounded-md border border-border bg-card p-3 text-left text-[11px] text-muted-foreground">
-      <div>sdkHasLoaded: {String(sdkHasLoaded)}</div>
-      <div>envId set: {envId ? `yes (${envId.slice(0, 8)}…)` : "NO"}</div>
-      <div>token in URL: {String(hasToken)}</div>
-      <div>inside Telegram: {String(inTg)}</div>
-      <div className="mt-1 opacity-60">href: {url.slice(0, 80)}</div>
+    <div className="w-full max-w-sm space-y-2 rounded-md border border-border bg-card p-3 text-left font-mono text-[11px] text-muted-foreground">
+      <div className="space-y-0.5">
+        <div>
+          sdkHasLoaded: <b>{String(sdkHasLoaded)}</b> · {elapsed}s
+        </div>
+        <div>envId: {envId ? `${envId.slice(0, 8)}…` : "NONE"}</div>
+        <div>token in URL: {String(hasToken)}</div>
+        <div>inside TG: {String(inTg)}</div>
+      </div>
+
+      <div className="border-t border-border pt-1.5">
+        <div className="mb-1 opacity-70">log:</div>
+        {entries.length === 0 ? (
+          <div className="opacity-50">(no entries)</div>
+        ) : (
+          <div className="max-h-64 space-y-0.5 overflow-y-auto">
+            {entries.map((e, i) => (
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: temp debug log, append-only
+                key={i}
+                className={
+                  e.kind === "error"
+                    ? "text-destructive"
+                    : e.kind === "net"
+                      ? "text-primary"
+                      : ""
+                }
+              >
+                +{e.t}ms {e.kind === "info" ? "" : `[${e.kind}] `}
+                {e.msg}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
