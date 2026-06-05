@@ -1,13 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
+import { shortenAddress } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
-// MILESTONE 1 placeholder. The real Aave market list + balance card land in M4.
+// M3: prove the Dynamic EVM EOA materialized. The Aave market list + balance
+// card (M4) and deposit/withdraw entry points (M5/M6) layer on top of this.
 function HomePage() {
+  const { evmAddress, tonAddress } = useDynamicWallet();
+
   return (
     <main className="flex flex-1 flex-col gap-4 p-4">
       <header className="flex items-center justify-between py-2">
@@ -21,14 +26,24 @@ function HomePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Scaffold online</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Wallet className="h-4 w-4 text-primary" />
+            Your wallet
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>
-            Bun + Vite + React + TanStack Router + Tailwind v4 + shadcn are
-            wired. Telegram SDK, Dynamic, Omniston, and Aave libs are installed.
-          </p>
-          <Button className="w-full">Primary button renders</Button>
+        <CardContent className="space-y-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">EVM (Base)</span>
+            <code className="font-mono text-foreground">
+              {evmAddress ? shortenAddress(evmAddress) : "—"}
+            </code>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">TON</span>
+            <code className="font-mono text-foreground">
+              {tonAddress ? shortenAddress(tonAddress, 6) : "—"}
+            </code>
+          </div>
         </CardContent>
       </Card>
     </main>
