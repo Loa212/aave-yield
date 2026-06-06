@@ -39,6 +39,18 @@ So the **bot token matches** (not 422) and the **Telegram data-check hash is val
   `{ telegramAuthToken (valid), forceCreateUser, sessionPublicKey (SET) }`.
   So `sessionPublicKey` is NOT empty.
 - Embedded Wallets enabled for Ethereum AND TON; "Create on sign up" on.
+- **TON connector ruled out:** an EVM-only build (`walletConnectors: [EthereumWalletConnectors]`,
+  matching your reference repo's `[Ethereum, Solana]` shape) returns the SAME 400. So the
+  `@dynamic-labs/ton` connector is not the cause.
+- **Our minted token is byte-for-byte identical to your reference `scripts/bot.ts`** — same
+  fields, same `authDate: Math.floor(Date.now())` (ms), same `generateTelegramHash` scheme,
+  same HS256 signing with the bot token. Diffed directly against your repo.
+- **Confirmed against the installed SDK source** (`useSocialAuth.completeConnection`,
+  `oauth.telegramSignIn`): for the `telegramAuthToken` path, the SDK sends
+  `{ captchaToken, forceCreateUser, sessionPublicKey, telegramAuthToken }` and intentionally
+  does NOT send `state` or `code`. So the empty `state`/`code` in our request is the SDK's
+  own designed behavior, not a misuse on our side — yet the server still fails the
+  "OAuth state" check.
 
 **Network sequence (the key clue):**
 ```
