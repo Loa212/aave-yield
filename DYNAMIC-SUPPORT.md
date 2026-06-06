@@ -62,7 +62,43 @@ The `/nonce` call happens AFTER signin. So at signin time no nonce/OAuth-state
 session is established — which looks like the cause of the 400. There is no
 state-registration call before `/telegram/signin`.
 
+**ROOT CAUSE (server-side, proven by direct endpoint probing):**
+
+Our env's `/settings` shows the Telegram provider provisioned as a STATEFUL OAuth provider:
+```
+telegram: {
+  authorizationUrl: ".../sdk/{env}/telegram/auth",   // a state-ISSUING endpoint
+  clientId: "@aave_yield_bot",                         // correct bot
+  redirectUrl: "https://app.dynamicauth.com",
+  createNewAccounts: true,
+}
+```
+Probing the server directly (minted token exactly like your bot, hit the raw endpoints):
+- `GET/POST /telegram/auth`  → 400 `request must have required property 'state' (+ telegramUser)`
+  → i.e. `/telegram/auth` is the endpoint that ISSUES/validates OAuth state.
+- `POST /telegram/signin` with a fully valid bot-JWT → 400 `Invalid or expired OAuth state`,
+  and NOTHING in the body changes it (forceCreateUser / sessionPublicKey / a client-supplied
+  `state` are all ignored at this gate).
+
+So `/telegram/signin` requires an OAuth-state that is only established by going THROUGH
+`/telegram/auth` first. The documented bot-JWT mini-app flow (`telegramSignIn({ authToken })`)
+never calls `/telegram/auth`, so no server-side state exists → the 400 every time.
+auth_date format ruled out: minting the token with auth_date in SECONDS (real Telegram spec)
+vs MILLISECONDS (your reference bot) gives the identical 400.
+
+**The validation order is confirmed (so token + bot config are definitively correct):**
+| Request | Response | Means |
+|---|---|---|
+| BAD JWT signature | 422 `JsonWebTokenError: invalid signature` | layer 1: JWT verified with bot token |
+| Valid JWT, BAD inner Telegram hash | 403 `Invalid authentication verification` | layer 2: Telegram data-check hash verified |
+| Valid JWT + valid hash (our real token) | **400 `Invalid or expired OAuth state`** | layer 3: the OAuth-state gate — the ONLY failure |
+
 **Questions:**
+0. (PRIMARY) Our Telegram provider has `authorizationUrl`/`redirectUrl` set, i.e. it's
+   provisioned as a stateful OAuth provider. Does that configuration make `/telegram/signin`
+   require state from `/telegram/auth`, breaking the bot-JWT mini-app flow? How should the
+   Telegram provider be configured for the documented `telegramSignIn({ authToken })` flow —
+   is there a "bot token / mini-app" provider mode vs an "OAuth widget" mode we picked wrong?
 1. What establishes the "OAuth state" the signin endpoint validates, and why would it be
    missing/expired for a token-based Telegram sign-in?
 2. The OpenAPI schema marks `code` and `sessionPublicKey` as required NonEmptyString, but the
