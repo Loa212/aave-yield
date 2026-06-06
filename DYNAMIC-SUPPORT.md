@@ -15,6 +15,28 @@ Paste this to Dynamic (Slack/support). It contains the full reproduction.
 `400 {"error":"Invalid or expired OAuth state"}`.
 The SDK then swallows the error (resolves successfully) but `isLoggedIn` stays false.
 
+**TL;DR for triage:** every client-side variable is verified correct against your own
+reference (token byte-identical to `scripts/bot.ts`, SDK call identical, CORS allowlisted,
+bot token matches dashboard). The failure is isolated to the server-side OAuth-state gate
+on `/telegram/signin` for our "Your credentials" Telegram provider, whose `/settings` record
+carries `authorizationUrl` + `redirectUrl` (an OAuth-widget shape) even though the documented
+mini-app flow is token-only. Re-saving the bot token does NOT change the provider record
+(`enabledAt` unchanged, OAuth fields persist). We believe the provider is provisioned in the
+wrong mode and needs a server-side/dashboard fix we can't reach. **Primary question: Q0 below.**
+
+**Our Telegram provider record (from `GET /sdk/{env}/settings`, publicly readable):**
+```json
+{
+  "provider": "telegram",
+  "clientId": "@aave_yield_bot",
+  "createNewAccounts": true,
+  "authorizationUrl": ".../sdk/{env}/telegram/auth",
+  "redirectUrl": "https://app.dynamicauth.com",
+  "id": "fef49aff-95db-4864-af94-15e7c9d05d63",
+  "enabledAt": "2026-06-05T21:11:04Z"
+}
+```
+
 **We launch via initData-mint, not the URL token:** Telegram strips `?telegramAuthToken`
 from `web_app` launch URLs on iOS (confirmed: search/hash/start_param all empty), so we
 post `window.Telegram.WebApp.initData` to our backend, validate it
@@ -39,6 +61,14 @@ So the **bot token matches** (not 422) and the **Telegram data-check hash is val
   `{ telegramAuthToken (valid), forceCreateUser, sessionPublicKey (SET) }`.
   So `sessionPublicKey` is NOT empty.
 - Embedded Wallets enabled for Ethereum AND TON; "Create on sign up" on.
+- **CORS ruled out:** preflight OPTIONS to `/telegram/signin` with `Origin:
+  https://aave-yield-chi.vercel.app` → 204 + echoes that exact origin in
+  `access-control-allow-origin`; a bogus origin → ACAO `null` (server enforces the
+  allowlist). So our origin IS allowlisted. The 400 is a clean app-level error, not CORS.
+- **Re-saving the bot token is a no-op on the provider record:** re-pasting + saving "Your
+  credentials" leaves `enabledAt` and the `authorizationUrl`/`redirectUrl` fields unchanged,
+  and the 400 persists. So the provider's OAuth provisioning isn't something the bot-token
+  field re-provisions.
 - **TON connector ruled out:** an EVM-only build (`walletConnectors: [EthereumWalletConnectors]`,
   matching your reference repo's `[Ethereum, Solana]` shape) returns the SAME 400. So the
   `@dynamic-labs/ton` connector is not the cause.
