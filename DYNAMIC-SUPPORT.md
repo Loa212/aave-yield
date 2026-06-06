@@ -69,6 +69,12 @@ So the **bot token matches** (not 422) and the **Telegram data-check hash is val
   credentials" leaves `enabledAt` and the `authorizationUrl`/`redirectUrl` fields unchanged,
   and the 400 persists. So the provider's OAuth provisioning isn't something the bot-token
   field re-provisions.
+- **BotFather `/setdomain` ruled out:** changing the bot domain from `app.dynamicauth.com` to
+  the app URL (`https://aave-yield-chi.vercel.app`) changed neither the `/settings` provider
+  record nor the real-device result — still 400. So the bot domain is not the driver.
+- **Real-device log matches the synthetic repro exactly:** on iOS, the token mints,
+  `sessionPublicKey=set`, `POST /telegram/signin` → `400 Invalid or expired OAuth state`,
+  then `/settings` + `/nonce` fire afterward. Identical to hitting the endpoint directly.
 - **TON connector ruled out:** an EVM-only build (`walletConnectors: [EthereumWalletConnectors]`,
   matching your reference repo's `[Ethereum, Solana]` shape) returns the SAME 400. So the
   `@dynamic-labs/ton` connector is not the cause.
