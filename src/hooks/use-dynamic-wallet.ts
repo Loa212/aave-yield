@@ -83,7 +83,17 @@ export function useDynamicWallet(): DynamicWallet {
         // The base Wallet.connector getter widens to WalletConnector; for a
         // TonWallet it's concretely a TonWalletConnector, which exposes
         // sendTransaction(SendTransactionRequest). Narrow it back here.
-        const connector = tonWallet.connector as unknown as TonWalletConnector;
+        const connector =
+          tonWallet.connector as unknown as TonWalletConnector & {
+            validateActiveWallet?: (address: string) => Promise<void>;
+          };
+        // CRITICAL: set the connector's active account before sending. Both the
+        // WaaS and TON Connect connectors throw "Active account address is
+        // required" from sendTransaction() if it isn't set; their higher-level
+        // sendBalance() calls validateActiveWallet() first, but we send raw HTLC
+        // escrow messages, so we must do it ourselves. (Verified against the
+        // installed @dynamic-labs/ton connector source.)
+        await connector.validateActiveWallet?.(tonWallet.address);
         return connector.sendTransaction({
           from: tonWallet.address,
           validUntil,
