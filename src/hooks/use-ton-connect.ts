@@ -59,27 +59,45 @@ export function useTonConnect(): TonConnectWallet {
         "info",
         `tonconnect send: ${messages.length} msg(s), validUntil=${validUntil}, to=${messages[0]?.address?.slice(0, 12)}…`,
       );
+      // ROBUST TMA PATH: call the RAW SDK connector, not tonConnectUI.
+      // The UI wrapper's sendTransaction has two TMA bugs (verified in
+      // @tonconnect/ui source): (a) it aborts when its 'before' modal closes on
+      // the WebView handoff → "Transaction was not sent"; (b) its auto-redirect
+      // to @wallet only fires for resolved universal-link wallets, else it spins
+      // forever with no way to open the sign sheet. The raw connector has
+      // neither coupling — it just sends over the bridge and resolves. We open
+      // @wallet ourselves so the user can approve.
+      const connector = tonConnectUI.connector;
+
+      // Surface @wallet so the user can sign. Telegram's @wallet is a t.me
+      // universal-link wallet; opening it via the Telegram WebApp API brings up
+      // its sign sheet for the pending bridge request.
+      const openWallet = () => {
+        try {
+          const link = (
+            tonConnectUI.wallet as unknown as { universalLink?: string } | null
+          )?.universalLink;
+          const tg = window.Telegram?.WebApp as
+            | { openTelegramLink?: (u: string) => void }
+            | undefined;
+          if (link && tg?.openTelegramLink) {
+            tg.openTelegramLink(link);
+            dbg("info", `opened @wallet via ${link.slice(0, 24)}…`);
+          } else {
+            dbg("error", `no universalLink/openTelegramLink (link=${!!link})`);
+          }
+        } catch (e) {
+          dbg("error", `openWallet failed: ${String(e)}`);
+        }
+      };
+
       try {
-        const result = await tonConnectUI.sendTransaction(
-          {
-            validUntil,
-            // `from` defaults to the connected account; messages map 1:1 onto the
-            // TonConnect SendTransactionRequest shape.
-            messages,
-          },
-          {
-            // In a Telegram Mini App the default 'before' confirm modal gets
-            // dismissed when the WebView hands off to @wallet, which makes
-            // TonConnect abort the request ("Transaction was not sent") even
-            // though the user signs. Disable our own modals + skip the extra
-            // redirect so the SDK just waits for the wallet's real response.
-            modals: ["error"],
-            notifications: ["error"],
-            skipRedirectToWallet: "never",
-            returnStrategy: "back",
-          },
+        // sendTransaction(tx, { onRequestSent }) — onRequestSent fires once the
+        // request is delivered to the bridge; that's when we open @wallet.
+        const result = await connector.sendTransaction(
+          { validUntil, messages },
+          { onRequestSent: openWallet },
         );
-        // sendTransaction resolves to { boc }; the deposit hook wants a string.
         dbg("info", `tonconnect send OK: boc=${result.boc?.slice(0, 16)}…`);
         return result.boc;
       } catch (e) {
