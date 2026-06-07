@@ -25,33 +25,18 @@ const queryClient = new QueryClient({
   },
 });
 
-// Base (chain 8453) network override.
-//
-// WHY: our Dynamic environment has NO EVM networks configured server-side, so the
-// WaaS EVM wallet throws "EVM network not found" the moment we read/supply USDC on
-// Base (verified: /settings networks is empty, no 8453). Rather than fight the
-// dashboard, we register Base in-code via settings.overrides.evmNetworks — the
-// same approach Dynamic's working reference app uses. This makes the embedded EVM
-// wallet operate on Base without any dashboard change.
-const BASE_NETWORK = {
-  blockExplorerUrls: ["https://basescan.org"],
-  chainId: 8453,
-  chainName: "Base",
-  iconUrls: ["https://app.dynamic.xyz/assets/networks/base.svg"],
-  name: "Base",
-  nativeCurrency: { decimals: 18, name: "Ether", symbol: "ETH" },
-  networkId: 8453,
-  rpcUrls: ["https://mainnet.base.org"],
-  vanityName: "Base",
-};
-
 // We enable BOTH Ethereum and TON connectors so Dynamic provisions a stable EVM
 // EOA (Aave side) AND a TON wallet (USDT-TON side) from the single Telegram login.
+//
+// NOTE: Base (chain 8453) is configured in the Dynamic DASHBOARD (Networks), NOT
+// via a settings.overrides.evmNetworks override. The in-code override was tried
+// and REVERTED — it disrupted the WaaS embedded-wallet provider registration,
+// causing "Failed to get wallet provider for verified credential: missing
+// walletName" and hanging the AuthGate on init. The dashboard config is the
+// correct, non-breaking way to add the network.
 const dynamicSettings: DynamicContextProps["settings"] = {
   environmentId: DYNAMIC_ENVIRONMENT_ID,
   walletConnectors: [EthereumWalletConnectors, TonWalletConnectors],
-  // Register Base so the embedded EVM wallet has a network to operate on.
-  overrides: { evmNetworks: [BASE_NETWORK] },
   // Telegram social login is configured in the Dynamic dashboard; the SDK picks
   // it up automatically inside the Telegram WebView.
 };

@@ -1,6 +1,6 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
-import { type PropsWithChildren, useEffect } from "react";
+import { type PropsWithChildren, useEffect, useState } from "react";
 import { DebugReadout } from "@/components/debug-readout";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
 
@@ -19,14 +19,27 @@ export function AuthGate({ children }: PropsWithChildren) {
 
   const isSignInRoute = pathname === "/sign-in";
 
+  // Fallback: if Dynamic's init never completes (e.g. an unhandled rejection
+  // during bootstrap leaves sdkHasLoaded stuck false), don't spin forever —
+  // after a timeout, send the user to /sign-in so they can recover instead of
+  // staring at a hung spinner.
+  const [initTimedOut, setInitTimedOut] = useState(false);
   useEffect(() => {
-    if (!sdkHasLoaded) return;
+    if (sdkHasLoaded) return;
+    const id = setTimeout(() => setInitTimedOut(true), 8000);
+    return () => clearTimeout(id);
+  }, [sdkHasLoaded]);
+
+  const ready = sdkHasLoaded || initTimedOut;
+
+  useEffect(() => {
+    if (!ready) return;
     if (!isAuthenticated && !isSignInRoute) {
       navigate({ to: "/sign-in" });
     }
-  }, [sdkHasLoaded, isAuthenticated, isSignInRoute, navigate]);
+  }, [ready, isAuthenticated, isSignInRoute, navigate]);
 
-  if (!sdkHasLoaded) {
+  if (!ready) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
