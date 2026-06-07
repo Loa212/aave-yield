@@ -9,8 +9,29 @@ import {
   USDC_DECIMALS,
   waitForUsdcArrival,
 } from "@/lib/aave";
+import {
+  bytesToHex,
+  clearPendingDeposit,
+  savePendingDeposit,
+} from "@/lib/deposit-store";
 import { generateHtlcHashlock, generateHtlcSecret } from "@/lib/htlc";
 import { baseChainAddress, hexToBase64, tonChainAddress } from "@/lib/omniston";
+
+/**
+ * The ONLY execution phases at which it is safe to disclose the HTLC secret.
+ *
+ * Per the Omniston SDK docs, `EXECUTION_PHASE_CREATED` means the output position
+ * is merely reserved and its creation tx may NOT yet have on-chain finality (it
+ * can still be reverted). Disclosing then would let the resolver claim our USDT
+ * while the output can still roll back = irreversible loss. Only the
+ * READY_FOR_*_COMPLETION phases guarantee on-chain finality ("can no longer be
+ * reverted"), so we disclose ONLY then — strictly safer than gating on "any
+ * recognized phase". Verified against @ston-fi/omniston-sdk ExecutionPhase docs.
+ */
+const SAFE_TO_DISCLOSE_PHASES = new Set([
+  "EXECUTION_PHASE_READY_FOR_PRIVATE_COMPLETION",
+  "EXECUTION_PHASE_READY_FOR_PUBLIC_COMPLETION",
+]);
 
 /** Stages the deposit UI surfaces, in order. */
 export type DepositStage =
@@ -115,6 +136,24 @@ export function useDeposit() {
           },
         });
 
+        // Read the starting USDC balance BEFORE funding, so the arrival delta is
+        // measured from the true pre-bridge baseline.
+        const startUsdc = await readUsdcBalance(evmAddress);
+
+        // CRITICAL: persist the secret + order context BEFORE the funds leave the
+        // wallet. The secret is the only key to the escrowed USDT; if the app is
+        // interrupted between funding and disclosure, this record lets us resume
+        // tracking/disclosure (or recover via the on-chain refund). Persisting
+        // first means we never have funds in escrow with the secret lost.
+        savePendingDeposit({
+          quoteId: quote.quoteId,
+          secretsHex: secrets.map(bytesToHex),
+          traderTonAddress: tonAddress,
+          evmAddress,
+          quotedOutputUnits: quote.outputUnits,
+          createdAt: nowSeconds() * 1000,
+        });
+
         // --- 2. Sign + send via Dynamic's TON wallet ---
         // Payloads/stateInit are hex BoCs that must be base64-encoded for the
         // TonConnect message shape.
@@ -133,7 +172,6 @@ export function useDeposit() {
         // --- 3. Track settlement + disclose secrets ---
         setState((s) => ({ ...s, stage: "settling" }));
 
-        const startUsdc = await readUsdcBalance(evmAddress);
         const disclosed = secrets.map(() => false);
 
         const stream = omniston.orderTrack({
@@ -149,9 +187,13 @@ export function useDeposit() {
                 secret &&
                 !disclosed[i] &&
                 execution.outputPositionPhase &&
-                execution.outputPositionPhase !== "UNRECOGNIZED"
+                // Only disclose once the output has reached ON-CHAIN FINALITY
+                // (READY_FOR_*_COMPLETION) — NOT on CREATED, which can still
+                // revert and would let the resolver claim without delivering.
+                SAFE_TO_DISCLOSE_PHASES.has(execution.outputPositionPhase)
               ) {
-                // Resolver locked the USDC on Base — reveal the secret to claim.
+                // Resolver locked the USDC on Base with finality — reveal the
+                // secret so it can claim our USDT and release our USDC.
                 void omniston.orderDiscloseHtlcSecret({
                   quoteId: quote.quoteId,
                   executionIndex: i,
@@ -172,11 +214,25 @@ export function useDeposit() {
         // and rounding; the resolver pays exactly the quoted amount on success.
         const quotedOut = BigInt(quote.outputUnits);
         const minDelta = (quotedOut * 90n) / 100n;
-        const received = await waitForUsdcArrival(
-          evmAddress,
-          startUsdc,
-          minDelta,
-        );
+        let received: bigint;
+        try {
+          received = await waitForUsdcArrival(evmAddress, startUsdc, minDelta);
+        } catch {
+          // Timed out waiting for USDC. This is NOT necessarily a loss: the
+          // bridge may still settle (funds mid-flight) and the persisted record
+          // keeps the secret recoverable. Surface a non-destructive "pending"
+          // error instead of implying the funds vanished. We do NOT clear the
+          // pending-deposit record here.
+          subscription.unsubscribe();
+          trackUnsubRef.current = null;
+          setState((s) => ({
+            ...s,
+            stage: "error",
+            error:
+              "Still settling. Your USDT is bridging — this can take a few minutes. Your funds are safe; check your balance shortly. If USDC doesn't arrive, it auto-refunds to your TON wallet.",
+          }));
+          return;
+        }
 
         subscription.unsubscribe();
         trackUnsubRef.current = null;
@@ -195,6 +251,10 @@ export function useDeposit() {
           evmAddress,
           received,
         );
+
+        // Swap + supply both succeeded — the bridge is fully settled, so the
+        // persisted record is no longer needed.
+        clearPendingDeposit(quote.quoteId);
 
         setState((s) => ({
           ...s,

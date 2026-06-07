@@ -26,7 +26,8 @@ Do NOT grep or search broadly. Instead:
 - **Home / Aave market list + balance** — `src/routes/index.tsx` (hooks: `use-aave-markets`, `use-usdc-supply-balance`)
 - **Wallet balances (TON + USDT-TON)** — `src/hooks/use-ton-balances.ts` (TON Center v3 API) → rendered by `src/components/wallet-card.tsx` on the home screen
 - **Receive / fund wallet (QR + address)** — `src/routes/receive.tsx` (`?network=ton|base`), styled after the TON Wallet receive flow; uses `qrcode`
-- **Deposit (USDT-TON → USDC → Aave supply)** — `src/routes/deposit.tsx` → `src/hooks/use-deposit.ts`
+- **Deposit (USDT-TON → USDC → Aave supply)** — `src/routes/deposit.tsx` → `src/hooks/use-deposit.ts`. Funds-safety critical: persists the HTLC secret to `src/lib/deposit-store.ts` BEFORE funding the escrow, and only discloses the secret at on-chain-finality phases (`READY_FOR_*_COMPLETION`, never `CREATED`).
+- **Resume interrupted deposits** — `src/hooks/use-resume-deposits.ts` (run from `routes/index.tsx`): on load, re-tracks any persisted pending deposit and discloses its secret so an interrupted bridge still settles instead of stranding funds.
 - **Withdraw (Aave → USDC → USDT-TON)** — `src/routes/withdraw.tsx` → `src/hooks/use-withdraw.ts`
 - **Cross-chain quotes** — `src/hooks/use-omniston-quote.ts` + `src/lib/omniston.ts` (assets, ChainAddress builders)
 - **Aave contracts (ABIs, supply/withdraw, APY math)** — `src/lib/aave.ts`

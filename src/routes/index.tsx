@@ -8,6 +8,7 @@ import { useToast } from "@/components/toast";
 import { WalletCard } from "@/components/wallet-card";
 import { useAaveMarkets } from "@/hooks/use-aave-markets";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
+import { useResumePendingDeposits } from "@/hooks/use-resume-deposits";
 import { useUsdcSupplyBalance } from "@/hooks/use-usdc-supply-balance";
 
 export const Route = createFileRoute("/")({
@@ -16,6 +17,9 @@ export const Route = createFileRoute("/")({
 
 function HomePage() {
   const { evmAddress } = useDynamicWallet();
+  // Resume any deposit interrupted between escrow-funding and secret-disclosure
+  // (recovers funds that would otherwise be stuck pending the on-chain refund).
+  useResumePendingDeposits();
   const markets = useAaveMarkets();
   const balance = useUsdcSupplyBalance(evmAddress);
   const { toast } = useToast();
