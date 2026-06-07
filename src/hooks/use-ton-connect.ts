@@ -60,12 +60,25 @@ export function useTonConnect(): TonConnectWallet {
         `tonconnect send: ${messages.length} msg(s), validUntil=${validUntil}, to=${messages[0]?.address?.slice(0, 12)}…`,
       );
       try {
-        const result = await tonConnectUI.sendTransaction({
-          validUntil,
-          // `from` defaults to the connected account; messages map 1:1 onto the
-          // TonConnect SendTransactionRequest shape.
-          messages,
-        });
+        const result = await tonConnectUI.sendTransaction(
+          {
+            validUntil,
+            // `from` defaults to the connected account; messages map 1:1 onto the
+            // TonConnect SendTransactionRequest shape.
+            messages,
+          },
+          {
+            // In a Telegram Mini App the default 'before' confirm modal gets
+            // dismissed when the WebView hands off to @wallet, which makes
+            // TonConnect abort the request ("Transaction was not sent") even
+            // though the user signs. Disable our own modals + skip the extra
+            // redirect so the SDK just waits for the wallet's real response.
+            modals: ["error"],
+            notifications: ["error"],
+            skipRedirectToWallet: "never",
+            returnStrategy: "back",
+          },
+        );
         // sendTransaction resolves to { boc }; the deposit hook wants a string.
         dbg("info", `tonconnect send OK: boc=${result.boc?.slice(0, 16)}…`);
         return result.boc;
