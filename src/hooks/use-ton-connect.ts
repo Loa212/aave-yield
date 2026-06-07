@@ -59,62 +59,21 @@ export function useTonConnect(): TonConnectWallet {
         "info",
         `tonconnect send: ${messages.length} msg(s), validUntil=${validUntil}, to=${messages[0]?.address?.slice(0, 12)}…`,
       );
-      // ROBUST TMA PATH: call the RAW SDK connector, not tonConnectUI.
-      // The UI wrapper's sendTransaction has two TMA bugs (verified in
-      // @tonconnect/ui source): (a) it aborts when its 'before' modal closes on
-      // the WebView handoff → "Transaction was not sent"; (b) its auto-redirect
-      // to @wallet only fires for resolved universal-link wallets, else it spins
-      // forever with no way to open the sign sheet. The raw connector has
-      // neither coupling — it just sends over the bridge and resolves. We open
-      // @wallet ourselves so the user can approve.
-      const connector = tonConnectUI.connector;
-
-      // Surface @wallet so the user can sign. Telegram's @wallet is a t.me
-      // universal-link wallet; opening it via the Telegram WebApp API brings up
-      // its sign sheet for the pending bridge request.
-      const w = tonConnectUI.wallet as unknown as {
-        universalLink?: string;
-        appName?: string;
-      } | null;
-      dbg(
-        "info",
-        `wallet: appName=${w?.appName ?? "?"} universalLink=${w?.universalLink ?? "none"}`,
-      );
-      const openWallet = (tag: string) => {
-        try {
-          const link = w?.universalLink;
-          const tg = window.Telegram?.WebApp as
-            | {
-                openTelegramLink?: (u: string) => void;
-                openLink?: (u: string) => void;
-              }
-            | undefined;
-          if (!link) {
-            dbg("error", `${tag}: no universalLink on wallet`);
-            return;
-          }
-          // @wallet links are t.me/… → openTelegramLink; fall back to openLink.
-          if (link.includes("t.me") && tg?.openTelegramLink) {
-            tg.openTelegramLink(link);
-          } else if (tg?.openLink) {
-            tg.openLink(link);
-          } else {
-            window.open(link, "_blank");
-          }
-          dbg("info", `${tag}: opened @wallet ${link.slice(0, 28)}…`);
-        } catch (e) {
-          dbg("error", `${tag}: openWallet failed: ${String(e)}`);
-        }
-      };
-
-      // Open @wallet immediately (don't wait for onRequestSent, which only fires
-      // after the bridge delivers — if that's slow, the sheet never surfaces).
-      openWallet("pre");
-
+      // Use the UI wrapper's sendTransaction WITH the 'before' modal kept on.
+      // (The manual raw-connector open was wrong: opening the bare @wallet
+      // universalLink launches its home/"send to contact" screen, NOT the
+      // pending signing request. Only the UI modal's "Open Wallet" button builds
+      // the request-specific deep link that surfaces the actual sign sheet.)
+      // twaReturnUrl + returnStrategy 'back' (set on the provider) handle the
+      // TMA return.
       try {
-        const result = await connector.sendTransaction(
+        const result = await tonConnectUI.sendTransaction(
           { validUntil, messages },
-          { onRequestSent: () => openWallet("onRequestSent") },
+          {
+            modals: ["before", "success", "error"],
+            notifications: ["before", "success", "error"],
+            returnStrategy: "back",
+          },
         );
         dbg("info", `tonconnect send OK: boc=${result.boc?.slice(0, 16)}…`);
         return result.boc;
