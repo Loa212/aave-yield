@@ -125,10 +125,12 @@ function DepositPage() {
             <Button variant="secondary" className="w-full" onClick={reset}>
               Try again
             </Button>
-            {/* TEMP DEBUG: surfaces the tonconnect send breadcrumbs on failure. */}
-            <DebugReadout label="deposit" />
           </div>
         )}
+
+        {/* TEMP DEBUG: visible during bridging too (it can get stuck waiting on
+            the @wallet sign sheet — show the breadcrumbs so we can Copy logs). */}
+        <DebugReadout label="deposit" />
 
         {state.stage === "done" && (
           <div className="space-y-3">

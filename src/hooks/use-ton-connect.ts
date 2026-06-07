@@ -72,31 +72,49 @@ export function useTonConnect(): TonConnectWallet {
       // Surface @wallet so the user can sign. Telegram's @wallet is a t.me
       // universal-link wallet; opening it via the Telegram WebApp API brings up
       // its sign sheet for the pending bridge request.
-      const openWallet = () => {
+      const w = tonConnectUI.wallet as unknown as {
+        universalLink?: string;
+        appName?: string;
+      } | null;
+      dbg(
+        "info",
+        `wallet: appName=${w?.appName ?? "?"} universalLink=${w?.universalLink ?? "none"}`,
+      );
+      const openWallet = (tag: string) => {
         try {
-          const link = (
-            tonConnectUI.wallet as unknown as { universalLink?: string } | null
-          )?.universalLink;
+          const link = w?.universalLink;
           const tg = window.Telegram?.WebApp as
-            | { openTelegramLink?: (u: string) => void }
+            | {
+                openTelegramLink?: (u: string) => void;
+                openLink?: (u: string) => void;
+              }
             | undefined;
-          if (link && tg?.openTelegramLink) {
-            tg.openTelegramLink(link);
-            dbg("info", `opened @wallet via ${link.slice(0, 24)}…`);
-          } else {
-            dbg("error", `no universalLink/openTelegramLink (link=${!!link})`);
+          if (!link) {
+            dbg("error", `${tag}: no universalLink on wallet`);
+            return;
           }
+          // @wallet links are t.me/… → openTelegramLink; fall back to openLink.
+          if (link.includes("t.me") && tg?.openTelegramLink) {
+            tg.openTelegramLink(link);
+          } else if (tg?.openLink) {
+            tg.openLink(link);
+          } else {
+            window.open(link, "_blank");
+          }
+          dbg("info", `${tag}: opened @wallet ${link.slice(0, 28)}…`);
         } catch (e) {
-          dbg("error", `openWallet failed: ${String(e)}`);
+          dbg("error", `${tag}: openWallet failed: ${String(e)}`);
         }
       };
 
+      // Open @wallet immediately (don't wait for onRequestSent, which only fires
+      // after the bridge delivers — if that's slow, the sheet never surfaces).
+      openWallet("pre");
+
       try {
-        // sendTransaction(tx, { onRequestSent }) — onRequestSent fires once the
-        // request is delivered to the bridge; that's when we open @wallet.
         const result = await connector.sendTransaction(
           { validUntil, messages },
-          { onRequestSent: openWallet },
+          { onRequestSent: () => openWallet("onRequestSent") },
         );
         dbg("info", `tonconnect send OK: boc=${result.boc?.slice(0, 16)}…`);
         return result.boc;
