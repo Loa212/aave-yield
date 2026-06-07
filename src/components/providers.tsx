@@ -52,16 +52,9 @@ const dynamicSettings: DynamicContextProps["settings"] = {
 export function Providers({ children }: PropsWithChildren) {
   return (
     <DynamicContextProvider settings={dynamicSettings}>
-      <TonConnectUIProvider
-        manifestUrl={TONCONNECT_MANIFEST_URL}
-        actionsConfiguration={{
-          // Bot link so @wallet can return to Telegram after signing. (Sends go
-          // through the raw connector — see use-ton-connect.ts — so this mainly
-          // affects the connect flow; keep it a link that actually resolves.)
-          twaReturnUrl: "https://t.me/aave_yield_bot",
-          returnStrategy: "back",
-        }}
-      >
+      {/* Minimal config matching STON.fi Omniston's working reference — no
+          actionsConfiguration/twaReturnUrl (those triggered the TMA send abort). */}
+      <TonConnectUIProvider manifestUrl={TONCONNECT_MANIFEST_URL}>
         <QueryClientProvider client={queryClient}>
           {/* NOTE: We intentionally do NOT pass our queryClient to OmnistonProvider.
               The SDK pins @tanstack/react-query@5.96.0 as a hard dep (not a peer),

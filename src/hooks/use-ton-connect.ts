@@ -59,22 +59,16 @@ export function useTonConnect(): TonConnectWallet {
         "info",
         `tonconnect send: ${messages.length} msg(s), validUntil=${validUntil}, to=${messages[0]?.address?.slice(0, 12)}…`,
       );
-      // Use the UI wrapper's sendTransaction WITH the 'before' modal kept on.
-      // (The manual raw-connector open was wrong: opening the bare @wallet
-      // universalLink launches its home/"send to contact" screen, NOT the
-      // pending signing request. Only the UI modal's "Open Wallet" button builds
-      // the request-specific deep link that surfaces the actual sign sheet.)
-      // twaReturnUrl + returnStrategy 'back' (set on the provider) handle the
-      // TMA return.
+      // EXACT match to STON.fi Omniston's reference example (same SDK 2.4.4,
+      // same escrow): bare sendTransaction with NO options object, and pass
+      // `from` explicitly. Adding modals/returnStrategy/twaReturnUrl options was
+      // triggering the TMA abort; the defaults work.
       try {
-        const result = await tonConnectUI.sendTransaction(
-          { validUntil, messages },
-          {
-            modals: ["before", "success", "error"],
-            notifications: ["before", "success", "error"],
-            returnStrategy: "back",
-          },
-        );
+        const result = await tonConnectUI.sendTransaction({
+          validUntil,
+          from: tonConnectUI.account?.address,
+          messages,
+        });
         dbg("info", `tonconnect send OK: boc=${result.boc?.slice(0, 16)}…`);
         return result.boc;
       } catch (e) {
