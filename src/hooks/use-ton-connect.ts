@@ -49,8 +49,10 @@ export function useTonConnect(): TonConnectWallet {
   const wallet = useTonWallet();
 
   const connect = useCallback(async () => {
-    // Jump straight to Telegram's @wallet (TonConnect app name 'telegram-wallet').
-    await tonConnectUI.openSingleWalletModal("telegram-wallet");
+    // Open the full wallet picker so the user can choose @wallet OR Tonkeeper /
+    // MyTonWallet. (@wallet sometimes spins on complex jetton-escrow payloads in
+    // the TMA; other wallets sign them fine.)
+    await tonConnectUI.openModal();
   }, [tonConnectUI]);
 
   const sendMessages = useCallback(
