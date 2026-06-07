@@ -6,6 +6,7 @@ import {
 import { TonWalletConnectors } from "@dynamic-labs/ton";
 import { OmnistonProvider } from "@ston-fi/omniston-sdk-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TonConnect } from "@tonconnect/sdk";
 import { TonConnectUIProvider } from "@tonconnect/ui-react";
 import type { PropsWithChildren } from "react";
 import { ToastProvider } from "@/components/toast";
@@ -17,6 +18,23 @@ const TONCONNECT_MANIFEST_URL =
   typeof window !== "undefined"
     ? `${window.location.origin}/tonconnect-manifest.json`
     : "https://aave-yield-chi.vercel.app/tonconnect-manifest.json";
+
+// Custom TonConnect instance with disableAutoPauseConnection: true.
+//
+// THE TMA FIX: by default the SDK pauses the bridge SSE connection on
+// document.visibilitychange. Inside a Telegram Mini App, opening @wallet to
+// sign backgrounds our WebView → the SDK pauses the bridge → @wallet's SIGNED
+// response can't be delivered back → the request times out as "Transaction was
+// not sent" (even though the user signs). Disabling auto-pause keeps the bridge
+// alive across the @wallet handoff so the signed boc returns. (Verified the
+// message itself is correct — this is purely the response not getting back.)
+const tonConnector =
+  typeof window !== "undefined"
+    ? new TonConnect({
+        manifestUrl: TONCONNECT_MANIFEST_URL,
+        disableAutoPauseConnection: true,
+      })
+    : undefined;
 
 // Dynamic environment ID. Set VITE_DYNAMIC_ENVIRONMENT_ID in Vercel / .env.local.
 // Without it, Dynamic renders an error widget rather than crashing the app.
@@ -52,9 +70,9 @@ const dynamicSettings: DynamicContextProps["settings"] = {
 export function Providers({ children }: PropsWithChildren) {
   return (
     <DynamicContextProvider settings={dynamicSettings}>
-      {/* Minimal config matching STON.fi Omniston's working reference — no
-          actionsConfiguration/twaReturnUrl (those triggered the TMA send abort). */}
-      <TonConnectUIProvider manifestUrl={TONCONNECT_MANIFEST_URL}>
+      {/* Pass our custom connector (disableAutoPauseConnection) so the bridge
+          stays alive across the @wallet sign handoff in the TMA. */}
+      <TonConnectUIProvider connector={tonConnector}>
         <QueryClientProvider client={queryClient}>
           {/* NOTE: We intentionally do NOT pass our queryClient to OmnistonProvider.
               The SDK pins @tanstack/react-query@5.96.0 as a hard dep (not a peer),
