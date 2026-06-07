@@ -4,11 +4,15 @@ import {
   useIsLoggedIn,
   useUserWallets,
 } from "@dynamic-labs/sdk-react-core";
-import type { TonWallet, TonWalletConnector } from "@dynamic-labs/ton";
-import { isTonWallet } from "@dynamic-labs/ton";
 import type { Wallet } from "@dynamic-labs/wallet-connector-core";
 import { useMemo } from "react";
 import type { Address, WalletClient } from "viem";
+
+// TEMP (test/sdk-3.6.2): @dynamic-labs/ton doesn't exist before 4.45.1, so for
+// the 3.6.2 reference-match auth test TON is stubbed out. `TonWallet` is aliased
+// to a minimal shape and the TON code paths no-op/throw. Revert when we go back
+// to 4.x — this whole branch is a diagnostic for the OAuth-state 400.
+type TonWallet = Wallet;
 
 /** A single TonConnect-shaped message (what tonBuildEscrowTransfer emits). */
 export interface TonMessageInput {
@@ -60,13 +64,15 @@ export function useDynamicWallet(): DynamicWallet {
 
   return useMemo(() => {
     const evmWallet = userWallets.find((w) => isEthereumWallet(w));
-    const tonWallet = userWallets.find((w): w is TonWallet => isTonWallet(w));
+    // TEMP (test/sdk-3.6.2): no TON connector in 3.x — TON wallet is unavailable.
+    // Typed via a helper so TS doesn't narrow the literal `undefined` to `never`.
+    const tonWallet = undefined as TonWallet | undefined;
 
     return {
       sdkHasLoaded,
       isAuthenticated: isLoggedIn,
       evmAddress: evmWallet?.address as Address | undefined,
-      tonAddress: tonWallet?.address,
+      tonAddress: tonWallet?.address as string | undefined,
       evmWallet,
       tonWallet,
       getEvmWalletClient: async (chainId?: string) => {
@@ -76,19 +82,13 @@ export function useDynamicWallet(): DynamicWallet {
         return evmWallet.getWalletClient(chainId);
       },
       sendTonMessages: async (
-        messages: TonMessageInput[],
-        validUntil: number,
+        _messages: TonMessageInput[],
+        _validUntil: number,
       ) => {
-        if (!tonWallet) throw new Error("No TON wallet available from Dynamic");
-        // The base Wallet.connector getter widens to WalletConnector; for a
-        // TonWallet it's concretely a TonWalletConnector, which exposes
-        // sendTransaction(SendTransactionRequest). Narrow it back here.
-        const connector = tonWallet.connector as unknown as TonWalletConnector;
-        return connector.sendTransaction({
-          from: tonWallet.address,
-          validUntil,
-          messages,
-        });
+        // TEMP (test/sdk-3.6.2): TON connector unavailable in 3.x. This path is
+        // only reachable post-auth (deposit/withdraw), which we're not testing
+        // on this diagnostic branch.
+        throw new Error("TON wallet unavailable on the 3.6.2 test build");
       },
       signOut: handleLogOut,
     };
