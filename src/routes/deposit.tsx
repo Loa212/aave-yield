@@ -56,12 +56,25 @@ function stageToIndex(stage: DepositStage): number {
 function DepositPage() {
   const navigate = useNavigate();
   useBackButton("/");
-  const { tonAddress } = useDynamicWallet();
+  const { tonAddress, hasTonConnectWallet, connectTonWallet } =
+    useDynamicWallet();
   const balances = useTonBalances(tonAddress);
   const usdtBalance = balances.data?.usdt ?? 0;
   const [amount, setAmount] = useState("");
+  const [connecting, setConnecting] = useState(false);
   const { quote, isFetching, noQuote } = useOmnistonQuote("deposit", amount);
   const { state, runDeposit, reset } = useDeposit();
+
+  async function onConnectWallet() {
+    setConnecting(true);
+    try {
+      await connectTonWallet();
+    } catch (e) {
+      console.error("TON Connect failed", e);
+    } finally {
+      setConnecting(false);
+    }
+  }
 
   // Trim trailing zeros so "2.000000" → "2" when tapping Max.
   const setMax = () => setAmount(String(usdtBalance));
@@ -82,6 +95,7 @@ function DepositPage() {
     Boolean(quote) &&
     Number(amount) > 0 &&
     !overBalance &&
+    hasTonConnectWallet &&
     Boolean(tonAddress);
 
   function onConfirm() {
@@ -209,21 +223,38 @@ function DepositPage() {
       <p className="px-1 text-xs text-muted-foreground">
         Your USDT bridges from TON to USDC on Base via STON.fi's HTLC swap (~2–5
         min), then is supplied to Aave V3 to earn yield. You'll sign the
-        transfer in your TON wallet.
+        transfer in your connected TON wallet.
       </p>
 
-      <Button
-        size="lg"
-        className="mt-auto w-full"
-        disabled={!canConfirm}
-        onClick={onConfirm}
-      >
-        {!tonAddress
-          ? "No TON wallet"
-          : isFetching && !quote
-            ? "Fetching quote…"
-            : "Confirm deposit"}
-      </Button>
+      {hasTonConnectWallet ? (
+        <Button
+          size="lg"
+          className="mt-auto w-full"
+          disabled={!canConfirm}
+          onClick={onConfirm}
+        >
+          {isFetching && !quote ? "Fetching quote…" : "Confirm deposit"}
+        </Button>
+      ) : (
+        // The deposit signs an HTLC escrow transfer, which only works through a
+        // real TON Connect wallet (the WaaS provisioned wallet's send path is
+        // broken in the Telegram WebView). Require connecting one first.
+        <Button
+          size="lg"
+          className="mt-auto w-full"
+          disabled={connecting}
+          onClick={onConnectWallet}
+        >
+          {connecting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Connecting…
+            </>
+          ) : (
+            "Connect TON wallet to deposit"
+          )}
+        </Button>
+      )}
     </main>
   );
 }

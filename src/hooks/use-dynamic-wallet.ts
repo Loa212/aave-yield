@@ -3,6 +3,7 @@ import {
   useDynamicContext,
   useIsLoggedIn,
   useUserWallets,
+  useWalletOptions,
 } from "@dynamic-labs/sdk-react-core";
 import type { TonWallet, TonWalletConnector } from "@dynamic-labs/ton";
 import { isTonWallet } from "@dynamic-labs/ton";
@@ -31,6 +32,14 @@ export interface DynamicWallet {
   evmWallet: Wallet | undefined;
   /** The raw Dynamic TON wallet (for sending escrow transfers). */
   tonWallet: TonWallet | undefined;
+  /**
+   * True when the active TON wallet is a real TON Connect wallet (the user's
+   * own funded wallet) rather than the Dynamic WaaS provisioned one. Deposits
+   * need this — the WaaS send path is broken in the Telegram WebView.
+   */
+  hasTonConnectWallet: boolean;
+  /** Open TON Connect to link the user's own TON wallet (e.g. Telegram @wallet). */
+  connectTonWallet: () => Promise<void>;
   /** Get a viem WalletClient for signing on Base. Throws if no EVM wallet. */
   getEvmWalletClient: (chainId?: string) => Promise<WalletClient>;
   /**
@@ -57,10 +66,30 @@ export function useDynamicWallet(): DynamicWallet {
   const { sdkHasLoaded, handleLogOut } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
   const userWallets = useUserWallets();
+  const { selectWalletOption } = useWalletOptions();
 
   return useMemo(() => {
     const evmWallet = userWallets.find((w) => isEthereumWallet(w));
-    const tonWallet = userWallets.find((w): w is TonWallet => isTonWallet(w));
+
+    // TON wallet selection: prefer a real TON Connect wallet (the user's funded
+    // @wallet) over the Dynamic WaaS provisioned one. The WaaS TON send path is
+    // BROKEN in the Telegram WebView (a "wallets are mismatched" modal dead-ends
+    // — see memory), whereas TON Connect routes through the wallet's own working
+    // UI. WaasTonWallet adds no fields over TonWallet, so we discriminate on the
+    // connector: the WaaS connector has isEmbeddedWallet===true / key
+    // 'dynamicwaas'; TON Connect connectors are isEmbeddedWallet===false.
+    const tonWallets = userWallets.filter((w): w is TonWallet =>
+      isTonWallet(w),
+    );
+    const isWaasTon = (w: TonWallet): boolean => {
+      const c = w.connector as unknown as {
+        isEmbeddedWallet?: boolean;
+        key?: string;
+      };
+      return c.isEmbeddedWallet === true || c.key === "dynamicwaas";
+    };
+    const tonConnectWallet = tonWallets.find((w) => !isWaasTon(w));
+    const tonWallet = tonConnectWallet ?? tonWallets[0];
 
     return {
       sdkHasLoaded,
@@ -69,6 +98,15 @@ export function useDynamicWallet(): DynamicWallet {
       tonAddress: tonWallet?.address,
       evmWallet,
       tonWallet,
+      hasTonConnectWallet: Boolean(tonConnectWallet),
+      // Open TON Connect for Telegram's @wallet (wallet-book key
+      // 'telegramwallet'). skipAllSelectionUi=true bypasses Dynamic's picker and
+      // opens the wallet's own TonConnect modal directly. Once connected, the
+      // new wallet appears in userWallets and the preference logic above selects
+      // it for deposits.
+      connectTonWallet: async () => {
+        await selectWalletOption("telegramwallet", false, true);
+      },
       getEvmWalletClient: async (chainId?: string) => {
         if (!evmWallet || !isEthereumWallet(evmWallet)) {
           throw new Error("No EVM wallet available from Dynamic");
@@ -102,5 +140,5 @@ export function useDynamicWallet(): DynamicWallet {
       },
       signOut: handleLogOut,
     };
-  }, [sdkHasLoaded, isLoggedIn, userWallets, handleLogOut]);
+  }, [sdkHasLoaded, isLoggedIn, userWallets, handleLogOut, selectWalletOption]);
 }

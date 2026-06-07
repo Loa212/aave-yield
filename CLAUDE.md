@@ -20,7 +20,7 @@ Do NOT grep or search broadly. Instead:
 
 ## Features
 
-- **Auth (Telegram → EVM+TON wallets)** — `src/hooks/use-dynamic-wallet.ts` (route: `src/routes/sign-in.tsx`)
+- **Auth (Telegram → EVM+TON wallets)** — `src/hooks/use-dynamic-wallet.ts` (route: `src/routes/sign-in.tsx`). Also exposes `connectTonWallet()` (TON Connect via `useWalletOptions().selectWalletOption("telegramwallet")`) + `hasTonConnectWallet`, and PREFERS a TON Connect wallet over the WaaS one for sends (the WaaS TON send path is broken in the TMA — see memory). Requires `public/tonconnect-manifest.json`.
 - **Telegram OAuth sign-in flow** — `src/lib/dynamic-telegram-auth.ts` — drives the 3-step OAuth code+state handshake (`/telegram/auth` → `/providers/telegram/oauthResult` → `/telegram/signin`) our Dynamic provider requires, then injects the session via `updateAuthFromVerifyResponse`. Called by `sign-in.tsx`.
 - **Telegram auth bot (server)** — `api/bot.ts` — Vercel webhook + `?action=mint` endpoint that validates WebApp initData and returns the `telegramAuthToken` JWT AND the `telegramUser` object the OAuth flow posts to `/telegram/auth`. Has its own `api/tsconfig.json` (Node), excluded from the Vite app build.
 - **Home / Aave market list + balance** — `src/routes/index.tsx` (hooks: `use-aave-markets`, `use-usdc-supply-balance`)
