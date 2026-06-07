@@ -19,9 +19,8 @@
   },
   "dependencies": {
     "@bgd-labs/aave-address-book": "4.44.22",
-    "@dynamic-labs/ethereum": "4.88.1",
-    "@dynamic-labs/sdk-react-core": "4.88.1",
-    "@dynamic-labs/ton": "4.88.1",
+    "@dynamic-labs/ethereum": "3.6.2",
+    "@dynamic-labs/sdk-react-core": "3.6.2",
     "@radix-ui/react-dialog": "1.1.15",
     "@radix-ui/react-slot": "1.2.4",
     "@ston-fi/omniston-sdk": "0.8.3",

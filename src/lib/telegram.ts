@@ -60,12 +60,13 @@ export async function initTelegram(): Promise<void> {
 
     backButton.mount.ifAvailable();
 
-    // IMPORTANT: @dynamic-labs/ton embeds @telegram-apps/sdk and ALSO mounts
-    // themeParams / miniApp / viewport. Mounting them a second time throws
-    // `ConcurrentCallError: ... already mounting`, whose unhandled rejection
-    // killed Dynamic's init (sdkHasLoaded stuck false in the TG WebView).
-    // Guard every mount on isMounted() so we coexist regardless of who runs
-    // first, and only bind CSS vars once mounted.
+    // IMPORTANT: Dynamic's SDK (esp. @dynamic-labs/ton on 4.x) embeds
+    // @telegram-apps/sdk and ALSO mounts themeParams / miniApp / viewport.
+    // Mounting them a second time throws `ConcurrentCallError: ... already
+    // mounting`, whose unhandled rejection killed Dynamic's init (sdkHasLoaded
+    // stuck false in the TG WebView). Guard every mount on isMounted() so we
+    // coexist regardless of who runs first, and only bind CSS vars once mounted.
+    // (Kept on the 3.6.2 test branch too — the guard is harmless without TON.)
     if (miniApp.mount.isAvailable()) {
       safeMount(themeParams);
       safeMount(miniApp);
