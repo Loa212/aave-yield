@@ -83,25 +83,25 @@ export function useDynamicWallet(): DynamicWallet {
     const tonWallets = userWallets.filter((w): w is TonWallet =>
       isTonWallet(w),
     );
-    // The WaaS provisioned wallet has key 'dynamicwaas' (DynamicWaasTonConnector
-    // overrideKey); a TON Connect wallet has a per-wallet key (e.g.
-    // 'telegramwallet'). `wallet.key` is the top-level BaseWallet property set
-    // from the connector key — more reliable than reaching into .connector.
-    // Also belt-and-suspenders check the connector's isEmbeddedWallet flag.
-    const isWaasTon = (w: TonWallet): boolean => {
-      const wk = (w as unknown as { key?: string }).key ?? "";
-      const c = w.connector as unknown as {
-        isEmbeddedWallet?: boolean;
-        key?: string;
-      };
-      return (
-        wk === "dynamicwaas" ||
-        c.key === "dynamicwaas" ||
-        c.isEmbeddedWallet === true
-      );
+    // A USABLE TON Connect wallet is the user's own connected wallet — NOT the
+    // WaaS provisioned one (key 'dynamicwaas', broken send path in the TMA) and
+    // NOT the FallbackTonConnector ('fallbackconnector'), which is a no-op stub
+    // present when no real TON wallet is connected (its sendTransaction returns
+    // '' — verified in @dynamic-labs/ton source). So we EXCLUDE both rather than
+    // "anything not WaaS". `wallet.key` is the top-level BaseWallet property.
+    const walletKey = (w: TonWallet): string => {
+      const wk = (w as unknown as { key?: string }).key;
+      const ck = (w.connector as unknown as { key?: string }).key;
+      return wk ?? ck ?? "";
     };
-    const tonConnectWallet = tonWallets.find((w) => !isWaasTon(w));
-    const tonWallet = tonConnectWallet ?? tonWallets[0];
+    const NON_USABLE_TON_KEYS = new Set(["dynamicwaas", "fallbackconnector"]);
+    const tonConnectWallet = tonWallets.find(
+      (w) => !NON_USABLE_TON_KEYS.has(walletKey(w)),
+    );
+    // For the active wallet, prefer the real TON Connect wallet; else the WaaS
+    // one (still has a valid address for display); never the fallback stub.
+    const waasTon = tonWallets.find((w) => walletKey(w) === "dynamicwaas");
+    const tonWallet = tonConnectWallet ?? waasTon ?? tonWallets[0];
 
     return {
       sdkHasLoaded,
