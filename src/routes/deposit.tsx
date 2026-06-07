@@ -14,6 +14,7 @@ import {
   USDT_TON_DECIMALS,
   useOmnistonQuote,
 } from "@/hooks/use-omniston-quote";
+import { useTonBalances } from "@/hooks/use-ton-balances";
 import { USDC_DECIMALS } from "@/lib/aave";
 import { impact, notify } from "@/lib/telegram";
 import { formatUsd } from "@/lib/utils";
@@ -56,9 +57,15 @@ function DepositPage() {
   const navigate = useNavigate();
   useBackButton("/");
   const { tonAddress } = useDynamicWallet();
+  const balances = useTonBalances(tonAddress);
+  const usdtBalance = balances.data?.usdt ?? 0;
   const [amount, setAmount] = useState("");
   const { quote, isFetching, noQuote } = useOmnistonQuote("deposit", amount);
   const { state, runDeposit, reset } = useDeposit();
+
+  // Trim trailing zeros so "2.000000" → "2" when tapping Max.
+  const setMax = () => setAmount(String(usdtBalance));
+  const overBalance = Number(amount) > usdtBalance;
 
   const running = state.stage !== "idle";
   const expectedUsdc = quote
@@ -71,7 +78,11 @@ function DepositPage() {
   }, [state.stage]);
 
   const canConfirm =
-    !running && Boolean(quote) && Number(amount) > 0 && Boolean(tonAddress);
+    !running &&
+    Boolean(quote) &&
+    Number(amount) > 0 &&
+    !overBalance &&
+    Boolean(tonAddress);
 
   function onConfirm() {
     if (!quote) return;
@@ -125,7 +136,26 @@ function DepositPage() {
       <Card>
         <CardContent className="space-y-4 pt-6">
           <div className="space-y-1.5">
-            <span className="text-sm text-muted-foreground">You send</span>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">You send</span>
+              {/* Tap the balance to fill the max. */}
+              <button
+                type="button"
+                onClick={setMax}
+                disabled={usdtBalance <= 0}
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              >
+                Balance:{" "}
+                <span className="font-medium text-foreground">
+                  {balances.isLoading
+                    ? "…"
+                    : usdtBalance.toLocaleString(undefined, {
+                        maximumFractionDigits: 4,
+                      })}
+                </span>{" "}
+                <span className="font-semibold text-primary">Max</span>
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               <Input
                 inputMode="decimal"
@@ -139,6 +169,11 @@ function DepositPage() {
                 USDT-TON
               </span>
             </div>
+            {overBalance && (
+              <p className="text-xs text-destructive">
+                Amount exceeds your USDT-TON balance.
+              </p>
+            )}
           </div>
 
           <div className="flex justify-center">
