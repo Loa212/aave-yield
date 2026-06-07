@@ -1,3 +1,4 @@
+import { setupInsideIframe } from "@dynamic-labs/utils";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -8,6 +9,37 @@ import "./index.css";
 
 // TEMP DEBUG: capture errors/network from the very first tick.
 installDebugCapture();
+
+// Dynamic iframe setup — the fix for the "Invalid or expired OAuth state" 400.
+//
+// Inside the Telegram WebView, the page origin Dynamic sees is not a stable,
+// trusted origin, so the OAuth-state / session it establishes can't be validated
+// against the origin at signin time → 400. `setupInsideIframe()` overrides
+// Dynamic's PlatformService so getOrigin()/getHost() return a FIXED parent URL
+// we supply via the `initial-parent-url` query param (verified by reading the
+// installed @dynamic-labs/utils source: getInitialParentURL() throws without it).
+// Cribbed from a working production TMA (manudev97/first-frame) — written fresh.
+//
+// MUST run before React mounts (and before Dynamic's module reads the URL), so
+// we set the param synchronously here, guarded to add it only once.
+if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+  try {
+    const u = new URL(window.location.href);
+    if (!u.searchParams.has("initial-parent-url")) {
+      // Base origin+path only (no query/hash) — a stable, self-referential
+      // parent URL. setupInsideIframe decodeURIComponent()s this value.
+      const parent = window.location.origin + window.location.pathname;
+      u.searchParams.set("initial-parent-url", encodeURIComponent(parent));
+      window.history.replaceState(null, "", u.toString());
+      dbg("info", "added initial-parent-url for iframe setup");
+    }
+    setupInsideIframe();
+    dbg("info", "setupInsideIframe() done");
+  } catch (e) {
+    // Non-fatal — the app must still load. Surface it for the debug readout.
+    dbg("error", `setupInsideIframe failed: ${String(e)}`);
+  }
+}
 
 // IMPORTANT: strip ?telegramAuthToken from the URL BEFORE Dynamic's module
 // captures window.location.href. When the token is present, Dynamic auto-runs

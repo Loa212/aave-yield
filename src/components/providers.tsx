@@ -3,6 +3,7 @@ import {
   type DynamicContextProps,
   DynamicContextProvider,
 } from "@dynamic-labs/sdk-react-core";
+import { TonWalletConnectors } from "@dynamic-labs/ton";
 import { OmnistonProvider } from "@ston-fi/omniston-sdk-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { PropsWithChildren } from "react";
@@ -24,14 +25,16 @@ const queryClient = new QueryClient({
   },
 });
 
-// TEMP (test/sdk-3.6.2): pinned to Dynamic SDK 3.6.2 to match their known-working
-// reference repo 100% and test whether the "Invalid or expired OAuth state" 400
-// is a 4.x regression. @dynamic-labs/ton doesn't exist before 4.45.1, so this is
-// EVM-only (the reference is EVM+Solana, also no TON). If sign-in works here, the
-// blocker is the 4.x SDK; if it still 400s, it's the server-side provider config.
+// We enable BOTH Ethereum and TON connectors so Dynamic provisions a stable EVM
+// EOA (Aave side) AND a TON wallet (USDT-TON side) from the single Telegram login.
+//
+// NOTE: An EVM-only A/B test (TON connector dropped) was run to check whether the
+// TON connector was the cause of the "Invalid or expired OAuth state" 400 at
+// sign-in. It was NOT — EVM-only returned the same 400 — so TON is restored here.
+// The blocker is server-side (see DYNAMIC-SUPPORT.md).
 const dynamicSettings: DynamicContextProps["settings"] = {
   environmentId: DYNAMIC_ENVIRONMENT_ID,
-  walletConnectors: [EthereumWalletConnectors],
+  walletConnectors: [EthereumWalletConnectors, TonWalletConnectors],
   // Telegram social login is configured in the Dynamic dashboard; the SDK picks
   // it up automatically inside the Telegram WebView.
 };
