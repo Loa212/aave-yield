@@ -38,6 +38,8 @@ export interface DynamicWallet {
    * need this — the WaaS send path is broken in the Telegram WebView.
    */
   hasTonConnectWallet: boolean;
+  /** TEMP DEBUG: keys of all detected TON wallets (to diagnose classification). */
+  tonWalletKeysDebug: string[];
   /** Open TON Connect to link the user's own TON wallet (e.g. Telegram @wallet). */
   connectTonWallet: () => Promise<void>;
   /** Get a viem WalletClient for signing on Base. Throws if no EVM wallet. */
@@ -81,12 +83,22 @@ export function useDynamicWallet(): DynamicWallet {
     const tonWallets = userWallets.filter((w): w is TonWallet =>
       isTonWallet(w),
     );
+    // The WaaS provisioned wallet has key 'dynamicwaas' (DynamicWaasTonConnector
+    // overrideKey); a TON Connect wallet has a per-wallet key (e.g.
+    // 'telegramwallet'). `wallet.key` is the top-level BaseWallet property set
+    // from the connector key — more reliable than reaching into .connector.
+    // Also belt-and-suspenders check the connector's isEmbeddedWallet flag.
     const isWaasTon = (w: TonWallet): boolean => {
+      const wk = (w as unknown as { key?: string }).key ?? "";
       const c = w.connector as unknown as {
         isEmbeddedWallet?: boolean;
         key?: string;
       };
-      return c.isEmbeddedWallet === true || c.key === "dynamicwaas";
+      return (
+        wk === "dynamicwaas" ||
+        c.key === "dynamicwaas" ||
+        c.isEmbeddedWallet === true
+      );
     };
     const tonConnectWallet = tonWallets.find((w) => !isWaasTon(w));
     const tonWallet = tonConnectWallet ?? tonWallets[0];
@@ -99,6 +111,15 @@ export function useDynamicWallet(): DynamicWallet {
       evmWallet,
       tonWallet,
       hasTonConnectWallet: Boolean(tonConnectWallet),
+      // TEMP DEBUG: surface each TON wallet's key + connector key + embedded flag.
+      tonWalletKeysDebug: tonWallets.map((w) => {
+        const wk = (w as unknown as { key?: string }).key ?? "?";
+        const c = w.connector as unknown as {
+          key?: string;
+          isEmbeddedWallet?: boolean;
+        };
+        return `${wk}|c.key=${c.key ?? "?"}|emb=${c.isEmbeddedWallet}`;
+      }),
       // Open TON Connect for Telegram's @wallet (wallet-book key
       // 'telegramwallet'). skipAllSelectionUi=true bypasses Dynamic's picker and
       // opens the wallet's own TonConnect modal directly. Once connected, the

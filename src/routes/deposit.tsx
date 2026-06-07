@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowDown, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
+import { DebugReadout } from "@/components/debug-readout";
 import { TokenIcon } from "@/components/token-icon";
 import { type ProgressStep, TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import {
 } from "@/hooks/use-omniston-quote";
 import { useTonBalances } from "@/hooks/use-ton-balances";
 import { USDC_DECIMALS } from "@/lib/aave";
+import { dbg } from "@/lib/debug-log";
 import { impact, notify } from "@/lib/telegram";
 import { formatUsd } from "@/lib/utils";
 
@@ -56,8 +58,12 @@ function stageToIndex(stage: DepositStage): number {
 function DepositPage() {
   const navigate = useNavigate();
   useBackButton("/");
-  const { tonAddress, hasTonConnectWallet, connectTonWallet } =
-    useDynamicWallet();
+  const {
+    tonAddress,
+    hasTonConnectWallet,
+    connectTonWallet,
+    tonWalletKeysDebug,
+  } = useDynamicWallet();
   const balances = useTonBalances(tonAddress);
   const usdtBalance = balances.data?.usdt ?? 0;
   const [amount, setAmount] = useState("");
@@ -84,6 +90,14 @@ function DepositPage() {
   const expectedUsdc = quote
     ? Number(formatUnits(BigInt(quote.outputUnits), USDC_DECIMALS))
     : 0;
+
+  // TEMP DEBUG: log detected TON wallet keys + classification on mount/change.
+  useEffect(() => {
+    dbg(
+      "info",
+      `TON wallets: [${tonWalletKeysDebug.join(" ; ")}] hasTonConnect=${hasTonConnectWallet}`,
+    );
+  }, [tonWalletKeysDebug, hasTonConnectWallet]);
 
   useEffect(() => {
     if (state.stage === "done") notify("success");
@@ -255,6 +269,9 @@ function DepositPage() {
           )}
         </Button>
       )}
+
+      {/* TEMP DEBUG: shows detected TON wallet keys + classification. */}
+      <DebugReadout label="deposit" />
     </main>
   );
 }
