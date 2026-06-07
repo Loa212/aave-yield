@@ -33,28 +33,32 @@
 }
 
 :root {
-  --background: oklch(0.16 0.01 280);
+  /* Aave-app-inspired dark: deep blue-violet base, layered surfaces. */
+  --background: oklch(0.15 0.018 285);
   --foreground: oklch(0.98 0 0);
-  --card: oklch(0.2 0.012 280);
+  --card: oklch(0.21 0.022 286);
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.2 0.012 280);
+  --popover: oklch(0.21 0.022 286);
   --popover-foreground: oklch(0.98 0 0);
   /* Aave brand purple */
-  --primary: oklch(0.62 0.19 295);
+  --primary: oklch(0.62 0.2 295);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.27 0.015 280);
+  --secondary: oklch(0.28 0.02 286);
   --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.27 0.015 280);
-  --muted-foreground: oklch(0.7 0.01 280);
-  --accent: oklch(0.27 0.015 280);
+  --muted: oklch(0.28 0.02 286);
+  --muted-foreground: oklch(0.72 0.015 286);
+  --accent: oklch(0.28 0.02 286);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.62 0.21 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.72 0.18 155);
-  --border: oklch(0.3 0.015 280);
-  --input: oklch(0.3 0.015 280);
-  --ring: oklch(0.62 0.19 295);
-  --radius: 0.875rem;
+  /* Aave's signature teal-green for yield/APY. */
+  --success: oklch(0.78 0.15 175);
+  --border: oklch(0.32 0.018 286);
+  --input: oklch(0.32 0.018 286);
+  --ring: oklch(0.62 0.2 295);
+  --radius: 1rem;
+  /* Soft elevation for cards (Aave uses subtle depth, not hard borders). */
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.18);
 }
 
 * {
