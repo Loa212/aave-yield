@@ -189,7 +189,21 @@ function handleMint(req: VercelReq, res: VercelRes) {
   };
   const hash = generateTelegramHash(userData);
   const telegramAuthToken = signJwtHs256({ ...userData, hash }, TOKEN);
-  res.status(200).json({ telegramAuthToken });
+  // Also return the `telegramUser` object in the exact shape Dynamic's
+  // /telegram/auth endpoint expects (camelCase, authDate as STRING, id as
+  // number, with the same hash). Our environment's Telegram provider requires
+  // the two-step OAuth code+state flow (see src/lib/dynamic-telegram-auth.ts),
+  // which posts this telegramUser to /telegram/auth to obtain the OAuth code.
+  const telegramUser = {
+    authDate: String(userData.authDate),
+    firstName: userData.firstName,
+    lastName: userData.lastName,
+    username: userData.username,
+    id: userData.id,
+    photoURL: userData.photoURL,
+    hash,
+  };
+  res.status(200).json({ telegramAuthToken, telegramUser });
 }
 
 export default async function handler(req: VercelReq, res: VercelRes) {

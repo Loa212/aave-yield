@@ -21,7 +21,8 @@ Do NOT grep or search broadly. Instead:
 ## Features
 
 - **Auth (Telegram → EVM+TON wallets)** — `src/hooks/use-dynamic-wallet.ts` (route: `src/routes/sign-in.tsx`)
-- **Telegram auth bot (server)** — `api/bot.ts` — Vercel webhook that mints the `telegramAuthToken` JWT Dynamic reads from the launch URL. Has its own `api/tsconfig.json` (Node), excluded from the Vite app build.
+- **Telegram OAuth sign-in flow** — `src/lib/dynamic-telegram-auth.ts` — drives the 3-step OAuth code+state handshake (`/telegram/auth` → `/providers/telegram/oauthResult` → `/telegram/signin`) our Dynamic provider requires, then injects the session via `updateAuthFromVerifyResponse`. Called by `sign-in.tsx`.
+- **Telegram auth bot (server)** — `api/bot.ts` — Vercel webhook + `?action=mint` endpoint that validates WebApp initData and returns the `telegramAuthToken` JWT AND the `telegramUser` object the OAuth flow posts to `/telegram/auth`. Has its own `api/tsconfig.json` (Node), excluded from the Vite app build.
 - **Home / Aave market list + balance** — `src/routes/index.tsx` (hooks: `use-aave-markets`, `use-usdc-supply-balance`)
 - **Deposit (USDT-TON → USDC → Aave supply)** — `src/routes/deposit.tsx` → `src/hooks/use-deposit.ts`
 - **Withdraw (Aave → USDC → USDT-TON)** — `src/routes/withdraw.tsx` → `src/hooks/use-withdraw.ts`

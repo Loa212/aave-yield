@@ -1,4 +1,3 @@
-import { useTelegramLogin } from "@dynamic-labs/sdk-react-core";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -7,22 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
 import { dbg } from "@/lib/debug-log";
+import { telegramOAuthSignIn } from "@/lib/dynamic-telegram-auth";
 import { isInsideTelegram, mintAuthToken, notify } from "@/lib/telegram";
 
 export const Route = createFileRoute("/sign-in")({
   component: SignInPage,
 });
 
-/** True if the launch URL carries the Dynamic telegramAuthToken (query param). */
-function hasAuthToken(): boolean {
-  if (typeof window === "undefined") return false;
-  // Dynamic reads it from searchParams; Telegram appends its own #hash after it.
-  return new URL(window.location.href).searchParams.has("telegramAuthToken");
-}
-
 function SignInPage() {
   const navigate = useNavigate();
-  const { telegramSignIn } = useTelegramLogin();
   const { isAuthenticated, sdkHasLoaded, evmAddress } = useDynamicWallet();
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,34 +41,29 @@ function SignInPage() {
     setError(null);
     setSigningIn(true);
     try {
-      // Telegram strips ?telegramAuthToken from web_app launch URLs on iOS, so
-      // we can't rely on the URL. Prefer a token minted from the live WebApp
-      // initData (our /api/bot?action=mint), and fall back to the URL token
-      // for desktop/web where the query param survives.
+      // Mint the telegramAuthToken + telegramUser from the live WebApp initData
+      // (our /api/bot?action=mint validates it server-side). Telegram strips
+      // ?telegramAuthToken from web_app launch URLs on iOS, so we always mint.
       dbg("info", "minting auth token from initData…");
       const minted = await mintAuthToken();
-      dbg("info", `mint result: ${minted ? "got token" : "null"}`);
+      dbg("info", `mint result: ${minted ? "got token+user" : "null"}`);
 
-      // Pass the minted token explicitly (bypasses the stripped URL). If minting
-      // failed but the URL has a token (desktop/web), leave authToken undefined
-      // so the SDK reads it from the URL.
-      const authToken = minted ?? undefined;
-
-      if (!authToken && !hasAuthToken()) {
+      if (!minted) {
         setError(
-          "Couldn't authenticate with Telegram. Open the app from the bot's Start button (send /start, tap “Open Aave Yield”).",
+          "Couldn't authenticate with Telegram. Open the app from inside Telegram (the bot's Open button).",
         );
         notify("error");
         return;
       }
 
-      // forceCreateUser: true so a brand-new Telegram user gets a wallet
-      // provisioned on first tap (the "seamless onboarding" in the plan).
-      dbg("info", "telegramSignIn() calling…");
-      await telegramSignIn({ forceCreateUser: true, authToken });
-      dbg("info", "telegramSignIn() returned ok");
+      // Drive the OAuth code+state flow our Dynamic provider requires (the bare
+      // telegramSignIn({authToken}) path 400s on this env — see
+      // src/lib/dynamic-telegram-auth.ts for the full reverse-engineered flow).
+      dbg("info", "telegramOAuthSignIn() calling…");
+      await telegramOAuthSignIn(minted.telegramAuthToken, minted.telegramUser);
+      dbg("info", "telegramOAuthSignIn() returned ok");
     } catch (e) {
-      dbg("error", `telegramSignIn threw: ${String(e)}`);
+      dbg("error", `sign-in threw: ${String(e)}`);
       console.error("Telegram sign-in failed", e);
       setError(
         e instanceof Error ? e.message : "Sign-in failed. Please try again.",
