@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowDown, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
+import { DebugReadout } from "@/components/debug-readout";
 import { TokenIcon } from "@/components/token-icon";
 import { type ProgressStep, TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
@@ -124,6 +125,8 @@ function DepositPage() {
             <Button variant="secondary" className="w-full" onClick={reset}>
               Try again
             </Button>
+            {/* TEMP DEBUG: surfaces the tonconnect send breadcrumbs on failure. */}
+            <DebugReadout label="deposit" />
           </div>
         )}
 
