@@ -42,7 +42,7 @@ export default defineConfig({
           dynamic: [
             "@dynamic-labs/sdk-react-core",
             "@dynamic-labs/ethereum",
-            // TEMP (test/sdk-3.6.2): @dynamic-labs/ton removed — no 3.x version.
+            "@dynamic-labs/ton",
           ],
           omniston: ["@ston-fi/omniston-sdk", "@ston-fi/omniston-sdk-react"],
           viem: ["viem"],
