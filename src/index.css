@@ -24,6 +24,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -53,6 +54,8 @@
   --destructive-foreground: oklch(0.99 0 0);
   /* Aave's signature teal-green for yield/APY. */
   --success: oklch(0.78 0.15 175);
+  /* Amber for "send only X" warnings on the receive screen. */
+  --warning: oklch(0.82 0.15 75);
   --border: oklch(0.32 0.018 286);
   --input: oklch(0.32 0.018 286);
   --ring: oklch(0.62 0.2 295);

@@ -17,30 +17,22 @@ export function WalletCard() {
   return (
     <Card className="shadow-(--shadow-card)">
       <CardContent className="space-y-3 pt-5">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-muted-foreground">
-            Your TON wallet
-          </span>
-          <Link
-            to="/receive"
-            search={{ network: "ton" }}
-            className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-foreground active:scale-95"
-          >
-            <QrCode className="h-3.5 w-3.5" />
-            Receive
-          </Link>
-        </div>
+        <span className="text-sm font-semibold text-muted-foreground">
+          Your TON wallet
+        </span>
 
         <div className="flex flex-col gap-2">
           <TokenBalanceRow
             symbol="USDT"
             label="USDT-TON"
+            token="usdt"
             amount={data?.usdt}
             isLoading={isLoading}
           />
           <TokenBalanceRow
             symbol="TON"
             label="Toncoin"
+            token="ton"
             amount={data?.ton}
             isLoading={isLoading}
           />
@@ -53,11 +45,13 @@ export function WalletCard() {
 function TokenBalanceRow({
   symbol,
   label,
+  token,
   amount,
   isLoading,
 }: {
   symbol: string;
   label: string;
+  token: "usdt" | "ton";
   amount: number | undefined;
   isLoading: boolean;
 }) {
@@ -67,15 +61,25 @@ function TokenBalanceRow({
         <TokenIcon symbol={symbol} size={32} />
         <span className="font-medium">{label}</span>
       </div>
-      <span className="font-semibold tabular-nums">
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        ) : (
-          (amount ?? 0).toLocaleString(undefined, {
-            maximumFractionDigits: 4,
-          })
-        )}
-      </span>
+      <div className="flex items-center gap-3">
+        <span className="font-semibold tabular-nums">
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : (
+            (amount ?? 0).toLocaleString(undefined, {
+              maximumFractionDigits: 4,
+            })
+          )}
+        </span>
+        <Link
+          to="/receive"
+          search={{ token }}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-95"
+          aria-label={`Receive ${label}`}
+        >
+          <QrCode className="h-4 w-4" />
+        </Link>
+      </div>
     </div>
   );
 }

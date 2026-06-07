@@ -8,82 +8,98 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useBackButton } from "@/hooks/use-back-button";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
 import { impact } from "@/lib/telegram";
-import { shortenAddress } from "@/lib/utils";
 
-type ReceiveNetwork = "ton" | "base";
+/** Which specific asset the user is funding. One token per screen — no ambiguity. */
+type ReceiveToken = "usdt" | "ton" | "usdc";
 
 interface ReceiveSearch {
-  network?: ReceiveNetwork;
+  token: ReceiveToken;
 }
 
 export const Route = createFileRoute("/receive")({
   validateSearch: (s: Record<string, unknown>): ReceiveSearch => ({
-    network: s.network === "base" ? "base" : "ton",
+    token: s.token === "ton" || s.token === "usdc" ? s.token : "usdt", // default to USDT-TON (the deposit input asset)
   }),
   component: ReceivePage,
 });
 
-const NETWORKS = {
-  ton: {
-    label: "TON",
-    fullName: "The Open Network",
-    tokens: ["USDT", "TON"],
-    note: "Send USDT or TON on the TON network to this address.",
+const TOKENS = {
+  usdt: {
+    symbol: "USDT",
+    title: "USDT",
+    network: "TON",
+    networkFull: "the TON network",
+    wallet: "ton" as const,
+    warning:
+      "Send only USDT (the jetton) on the TON network. Sending any other token or network may lose it.",
   },
-  base: {
-    label: "Base",
-    fullName: "Base network",
-    tokens: ["USDC"],
-    note: "Send only USDC via the Base network. Other assets may be lost.",
+  ton: {
+    symbol: "TON",
+    title: "Toncoin",
+    network: "TON",
+    networkFull: "the TON network",
+    wallet: "ton" as const,
+    warning:
+      "Send only Toncoin (TON) on the TON network. Sending any other token or network may lose it.",
+  },
+  usdc: {
+    symbol: "USDC",
+    title: "USDC",
+    network: "Base",
+    networkFull: "the Base network",
+    wallet: "base" as const,
+    warning:
+      "Send only USDC on the Base network. Sending any other token or network may lose it.",
   },
 } as const;
 
 function ReceivePage() {
   useBackButton("/");
-  const { network = "ton" } = useSearch({ from: "/receive" });
+  const { token } = useSearch({ from: "/receive" });
   const { tonAddress, evmAddress } = useDynamicWallet();
 
-  const address = network === "ton" ? tonAddress : evmAddress;
-  const meta = NETWORKS[network];
+  const meta = TOKENS[token];
+  const address = meta.wallet === "ton" ? tonAddress : evmAddress;
 
   return (
     <main className="flex flex-1 flex-col items-center gap-6 p-4">
       <div className="flex flex-col items-center gap-3 pt-4 text-center">
-        {/* Overlapping token icons, TON-Wallet style. */}
-        <div className="flex">
-          {meta.tokens.map((t, i) => (
-            <TokenIcon
-              key={t}
-              symbol={t}
-              size={56}
-              className={i > 0 ? "-ml-4 ring-2 ring-background" : ""}
-            />
-          ))}
-        </div>
+        <TokenIcon symbol={meta.symbol} size={56} />
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Receive {meta.tokens.join(" / ")}
+            Receive {meta.title}
           </h1>
-          <p className="text-sm text-muted-foreground">on {meta.fullName}</p>
+          <p className="text-sm text-muted-foreground">on {meta.networkFull}</p>
         </div>
       </div>
 
       {address ? (
-        <ReceiveCard address={address} note={meta.note} />
+        <ReceiveCard address={address} warning={meta.warning} />
       ) : (
         <Card className="w-full max-w-sm">
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No {meta.label} wallet found. Sign in again.
+            No {meta.network} wallet found. Sign in again.
           </CardContent>
         </Card>
       )}
 
-      <NetworkInfo network={network} />
+      <Card className="w-full max-w-sm">
+        <CardContent className="divide-y divide-border py-1">
+          <InfoRow k="Token" v={meta.title} />
+          <InfoRow k="Network" v={meta.network} />
+        </CardContent>
+      </Card>
     </main>
   );
 }
 
-function ReceiveCard({ address, note }: { address: string; note: string }) {
+function ReceiveCard({
+  address,
+  warning,
+}: {
+  address: string;
+  warning: string;
+}) {
   const [qr, setQr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -133,38 +149,17 @@ function ReceiveCard({ address, note }: { address: string; note: string }) {
           )}
         </Button>
 
-        <p className="px-1 text-center text-xs text-muted-foreground">{note}</p>
+        <p className="px-1 text-center text-xs text-warning">{warning}</p>
       </CardContent>
     </Card>
   );
 }
 
-function NetworkInfo({ network }: { network: ReceiveNetwork }) {
-  const rows =
-    network === "ton"
-      ? [
-          ["Network", "TON"],
-          ["Tokens", "USDT, TON"],
-        ]
-      : [
-          ["Network", "Base (BASE)"],
-          ["Token", "USDC"],
-        ];
-
+function InfoRow({ k, v }: { k: string; v: string }) {
   return (
-    <Card className="w-full max-w-sm">
-      <CardContent className="divide-y divide-border py-1">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex items-center justify-between py-3">
-            <span className="text-sm text-muted-foreground">{k}</span>
-            <span className="text-sm font-medium">{v}</span>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
+    <div className="flex items-center justify-between py-3">
+      <span className="text-sm text-muted-foreground">{k}</span>
+      <span className="text-sm font-medium">{v}</span>
+    </div>
   );
 }
-
-// Re-exported for callers that want the short form (kept for parity with the
-// settings sheet's display).
-export { shortenAddress };
