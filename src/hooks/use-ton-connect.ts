@@ -3,7 +3,7 @@ import {
   useTonConnectUI,
   useTonWallet,
 } from "@tonconnect/ui-react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { dbg } from "@/lib/debug-log";
 
 /** A single TonConnect-shaped message (what tonBuildEscrowTransfer emits). */
@@ -48,6 +48,25 @@ export function useTonConnect(): TonConnectWallet {
   const friendlyAddress = useTonAddress(); // bounceable user-friendly form
   const wallet = useTonWallet();
 
+  // THE TMA FIX: the TonConnect SDK pauses the bridge SSE connection when the
+  // tab is hidden. In a Mini App, opening @wallet to sign hides our WebView →
+  // the bridge pauses → @wallet's SIGNED response can't be delivered back →
+  // "Transaction was not sent". Re-open the bridge whenever we regain focus so
+  // the pending signed response is received. (We call unPauseConnection on the
+  // LIVE connector the hook uses — not a second instance.)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void tonConnectUI.connector
+          ?.unPauseConnection?.()
+          .then(() => dbg("info", "ton bridge unpaused (visible)"))
+          .catch(() => undefined);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [tonConnectUI]);
+
   const connect = useCallback(async () => {
     // Telegram's @wallet (TonConnect app name 'telegram-wallet') — the native
     // in-Telegram wallet for a Mini App.
@@ -70,6 +89,10 @@ export function useTonConnect(): TonConnectWallet {
       // `from` explicitly. Adding modals/returnStrategy/twaReturnUrl options was
       // triggering the TMA abort; the defaults work.
       try {
+        // Ensure the bridge is live before sending (it may have paused).
+        await tonConnectUI.connector
+          ?.unPauseConnection?.()
+          .catch(() => undefined);
         const result = await tonConnectUI.sendTransaction({
           validUntil,
           from: tonConnectUI.account?.address,
