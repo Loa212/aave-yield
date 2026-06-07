@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WithdrawRouteImport } from './routes/withdraw'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as ReceiveRouteImport } from './routes/receive'
 import { Route as DepositRouteImport } from './routes/deposit'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -22,6 +23,11 @@ const WithdrawRoute = WithdrawRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReceiveRoute = ReceiveRouteImport.update({
+  id: '/receive',
+  path: '/receive',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DepositRoute = DepositRouteImport.update({
@@ -38,12 +44,14 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/deposit': typeof DepositRoute
+  '/receive': typeof ReceiveRoute
   '/sign-in': typeof SignInRoute
   '/withdraw': typeof WithdrawRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/deposit': typeof DepositRoute
+  '/receive': typeof ReceiveRoute
   '/sign-in': typeof SignInRoute
   '/withdraw': typeof WithdrawRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/deposit': typeof DepositRoute
+  '/receive': typeof ReceiveRoute
   '/sign-in': typeof SignInRoute
   '/withdraw': typeof WithdrawRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/deposit' | '/sign-in' | '/withdraw'
+  fullPaths: '/' | '/deposit' | '/receive' | '/sign-in' | '/withdraw'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/deposit' | '/sign-in' | '/withdraw'
-  id: '__root__' | '/' | '/deposit' | '/sign-in' | '/withdraw'
+  to: '/' | '/deposit' | '/receive' | '/sign-in' | '/withdraw'
+  id: '__root__' | '/' | '/deposit' | '/receive' | '/sign-in' | '/withdraw'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DepositRoute: typeof DepositRoute
+  ReceiveRoute: typeof ReceiveRoute
   SignInRoute: typeof SignInRoute
   WithdrawRoute: typeof WithdrawRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/receive': {
+      id: '/receive'
+      path: '/receive'
+      fullPath: '/receive'
+      preLoaderRoute: typeof ReceiveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/deposit': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DepositRoute: DepositRoute,
+  ReceiveRoute: ReceiveRoute,
   SignInRoute: SignInRoute,
   WithdrawRoute: WithdrawRoute,
 }

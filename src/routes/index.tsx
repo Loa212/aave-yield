@@ -5,6 +5,7 @@ import { BalanceCard } from "@/components/balance-card";
 import { MarketRow } from "@/components/market-row";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { useToast } from "@/components/toast";
+import { WalletCard } from "@/components/wallet-card";
 import { useAaveMarkets } from "@/hooks/use-aave-markets";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
 import { useUsdcSupplyBalance } from "@/hooks/use-usdc-supply-balance";
@@ -41,6 +42,8 @@ function HomePage() {
         </div>
         <SettingsSheet />
       </header>
+
+      <WalletCard />
 
       <BalanceCard
         supplied={balance.data?.supplied ?? 0}
