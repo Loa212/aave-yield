@@ -42,7 +42,9 @@
     "viem": "2.47.10"
   },
   "overrides": {
-    "@tanstack/react-query": "5.101.0"
+    "@tanstack/react-query": "5.101.0",
+    "@tonconnect/ui": "2.4.4",
+    "@tonconnect/sdk": "3.4.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",

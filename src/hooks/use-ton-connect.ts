@@ -4,6 +4,7 @@ import {
   useTonWallet,
 } from "@tonconnect/ui-react";
 import { useCallback, useMemo } from "react";
+import { dbg } from "@/lib/debug-log";
 
 /** A single TonConnect-shaped message (what tonBuildEscrowTransfer emits). */
 export interface TonMessageInput {
@@ -54,14 +55,24 @@ export function useTonConnect(): TonConnectWallet {
 
   const sendMessages = useCallback(
     async (messages: TonMessageInput[], validUntil: number) => {
-      const result = await tonConnectUI.sendTransaction({
-        validUntil,
-        // `from` defaults to the connected account; messages map 1:1 onto the
-        // TonConnect SendTransactionRequest shape.
-        messages,
-      });
-      // sendTransaction resolves to { boc }; the deposit hook wants a string.
-      return result.boc;
+      dbg(
+        "info",
+        `tonconnect send: ${messages.length} msg(s), validUntil=${validUntil}, to=${messages[0]?.address?.slice(0, 12)}…`,
+      );
+      try {
+        const result = await tonConnectUI.sendTransaction({
+          validUntil,
+          // `from` defaults to the connected account; messages map 1:1 onto the
+          // TonConnect SendTransactionRequest shape.
+          messages,
+        });
+        // sendTransaction resolves to { boc }; the deposit hook wants a string.
+        dbg("info", `tonconnect send OK: boc=${result.boc?.slice(0, 16)}…`);
+        return result.boc;
+      } catch (e) {
+        dbg("error", `tonconnect send failed: ${String(e)}`);
+        throw e;
+      }
     },
     [tonConnectUI],
   );

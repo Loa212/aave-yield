@@ -55,8 +55,11 @@ export function Providers({ children }: PropsWithChildren) {
       <TonConnectUIProvider
         manifestUrl={TONCONNECT_MANIFEST_URL}
         actionsConfiguration={{
-          // 'back' returns the user to this mini app after signing in @wallet;
-          // the SDK also auto-detects the TWA→TWA return inside Telegram.
+          // Inside a TMA, the return strategy is twaReturnUrl || returnStrategy.
+          // twaReturnUrl is the mini app's start link so @wallet returns the
+          // signed tx back HERE after signing (without it the sign handoff can
+          // dead-end with "Transaction was not sent").
+          twaReturnUrl: "https://t.me/aave_yield_bot/app",
           returnStrategy: "back",
         }}
       >
