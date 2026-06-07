@@ -49,17 +49,21 @@ export function useTonConnect(): TonConnectWallet {
   const wallet = useTonWallet();
 
   const connect = useCallback(async () => {
-    // Open the full wallet picker so the user can choose @wallet OR Tonkeeper /
-    // MyTonWallet. (@wallet sometimes spins on complex jetton-escrow payloads in
-    // the TMA; other wallets sign them fine.)
-    await tonConnectUI.openModal();
+    // Telegram's @wallet (TonConnect app name 'telegram-wallet') — the native
+    // in-Telegram wallet for a Mini App.
+    await tonConnectUI.openSingleWalletModal("telegram-wallet");
   }, [tonConnectUI]);
 
   const sendMessages = useCallback(
     async (messages: TonMessageInput[], validUntil: number) => {
+      const m0 = messages[0];
       dbg(
         "info",
-        `tonconnect send: ${messages.length} msg(s), validUntil=${validUntil}, to=${messages[0]?.address?.slice(0, 12)}…`,
+        `tonconnect send: ${messages.length} msg(s) vu=${validUntil} from=${tonConnectUI.account?.address?.slice(0, 10)}`,
+      );
+      dbg(
+        "info",
+        `msg0: to=${m0?.address?.slice(0, 14)} amt=${m0?.amount} payloadLen=${m0?.payload?.length ?? 0} stateInit=${m0?.stateInit ? "yes" : "no"}`,
       );
       // EXACT match to STON.fi Omniston's reference example (same SDK 2.4.4,
       // same escrow): bare sendTransaction with NO options object, and pass
