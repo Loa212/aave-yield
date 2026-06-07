@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowDown, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
+import { TokenIcon } from "@/components/token-icon";
 import { type ProgressStep, TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -133,7 +134,8 @@ function DepositPage() {
                 onChange={(e) => setAmount(sanitizeAmount(e.target.value))}
                 className="text-lg"
               />
-              <span className="shrink-0 font-medium text-muted-foreground">
+              <span className="flex shrink-0 items-center gap-1.5 font-medium text-muted-foreground">
+                <TokenIcon symbol="USDT" size={20} />
                 USDT-TON
               </span>
             </div>
@@ -155,7 +157,10 @@ function DepositPage() {
                   expectedUsdc.toFixed(2)
                 )}
               </span>
-              <span className="font-medium text-muted-foreground">USDC</span>
+              <span className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                <TokenIcon symbol="USDC" size={20} />
+                USDC
+              </span>
             </div>
             {noQuote && amount && (
               <p className="text-xs text-destructive">
