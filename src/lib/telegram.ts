@@ -7,6 +7,7 @@ import {
   themeParams,
   viewport,
 } from "@telegram-apps/sdk-react";
+import type { TelegramUserPayload } from "@/lib/dynamic-telegram-auth";
 
 let initialized = false;
 
@@ -103,7 +104,10 @@ export async function initTelegram(): Promise<void> {
  *
  * Returns the token, or null if not inside Telegram / minting failed.
  */
-export async function mintAuthToken(): Promise<string | null> {
+export async function mintAuthToken(): Promise<{
+  telegramAuthToken: string;
+  telegramUser: TelegramUserPayload;
+} | null> {
   const initData = (() => {
     try {
       return window.Telegram?.WebApp?.initData ?? "";
@@ -120,8 +124,15 @@ export async function mintAuthToken(): Promise<string | null> {
       body: JSON.stringify({ initData }),
     });
     if (!res.ok) return null;
-    const json = (await res.json()) as { telegramAuthToken?: string };
-    return json.telegramAuthToken ?? null;
+    const json = (await res.json()) as {
+      telegramAuthToken?: string;
+      telegramUser?: TelegramUserPayload;
+    };
+    if (!json.telegramAuthToken || !json.telegramUser) return null;
+    return {
+      telegramAuthToken: json.telegramAuthToken,
+      telegramUser: json.telegramUser,
+    };
   } catch {
     return null;
   }
