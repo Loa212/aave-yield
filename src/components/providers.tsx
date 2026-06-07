@@ -6,9 +6,17 @@ import {
 import { TonWalletConnectors } from "@dynamic-labs/ton";
 import { OmnistonProvider } from "@ston-fi/omniston-sdk-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TonConnectUIProvider } from "@tonconnect/ui-react";
 import type { PropsWithChildren } from "react";
 import { ToastProvider } from "@/components/toast";
 import { omniston } from "@/lib/omniston";
+
+// TonConnect manifest (served from public/). The TON wallet uses raw TonConnect,
+// independent of Dynamic — see src/hooks/use-ton-connect.ts for why.
+const TONCONNECT_MANIFEST_URL =
+  typeof window !== "undefined"
+    ? `${window.location.origin}/tonconnect-manifest.json`
+    : "https://aave-yield-chi.vercel.app/tonconnect-manifest.json";
 
 // Dynamic environment ID. Set VITE_DYNAMIC_ENVIRONMENT_ID in Vercel / .env.local.
 // Without it, Dynamic renders an error widget rather than crashing the app.
@@ -44,17 +52,26 @@ const dynamicSettings: DynamicContextProps["settings"] = {
 export function Providers({ children }: PropsWithChildren) {
   return (
     <DynamicContextProvider settings={dynamicSettings}>
-      <QueryClientProvider client={queryClient}>
-        {/* NOTE: We intentionally do NOT pass our queryClient to OmnistonProvider.
-            The SDK pins @tanstack/react-query@5.96.0 as a hard dep (not a peer),
-            so bun keeps a nested copy whose QueryClient type is nominally
-            distinct from ours. Letting OmnistonProvider spin up its own internal
-            client for its observable RFQ/order queries avoids the type clash and
-            costs nothing — the two client instances don't need to be shared. */}
-        <OmnistonProvider omniston={omniston}>
-          <ToastProvider>{children}</ToastProvider>
-        </OmnistonProvider>
-      </QueryClientProvider>
+      <TonConnectUIProvider
+        manifestUrl={TONCONNECT_MANIFEST_URL}
+        actionsConfiguration={{
+          // 'back' returns the user to this mini app after signing in @wallet;
+          // the SDK also auto-detects the TWA→TWA return inside Telegram.
+          returnStrategy: "back",
+        }}
+      >
+        <QueryClientProvider client={queryClient}>
+          {/* NOTE: We intentionally do NOT pass our queryClient to OmnistonProvider.
+              The SDK pins @tanstack/react-query@5.96.0 as a hard dep (not a peer),
+              so bun keeps a nested copy whose QueryClient type is nominally
+              distinct from ours. Letting OmnistonProvider spin up its own internal
+              client for its observable RFQ/order queries avoids the type clash and
+              costs nothing — the two client instances don't need to be shared. */}
+          <OmnistonProvider omniston={omniston}>
+            <ToastProvider>{children}</ToastProvider>
+          </OmnistonProvider>
+        </QueryClientProvider>
+      </TonConnectUIProvider>
     </DynamicContextProvider>
   );
 }

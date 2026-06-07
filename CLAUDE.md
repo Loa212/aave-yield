@@ -20,7 +20,8 @@ Do NOT grep or search broadly. Instead:
 
 ## Features
 
-- **Auth (Telegram → EVM+TON wallets)** — `src/hooks/use-dynamic-wallet.ts` (route: `src/routes/sign-in.tsx`). Also exposes `connectTonWallet()` (TON Connect via `useWalletOptions().selectWalletOption("telegramwallet")`) + `hasTonConnectWallet`, and PREFERS a TON Connect wallet over the WaaS one for sends (the WaaS TON send path is broken in the TMA — see memory). Requires `public/tonconnect-manifest.json`.
+- **Auth + wallets (split ownership)** — `src/hooks/use-dynamic-wallet.ts` (route: `src/routes/sign-in.tsx`). Dynamic owns Telegram auth + the EVM (Base) wallet; the TON wallet is owned by **standalone TonConnect** (NOT Dynamic — its WaaS TON path is broken in the TMA). This hook unifies both.
+- **TON wallet (standalone TonConnect)** — `src/hooks/use-ton-connect.ts` (provider: `TonConnectUIProvider` in `components/providers.tsx`; needs `public/tonconnect-manifest.json`). Exposes `tonAddress`, `connect()` (opens Telegram @wallet), `sendMessages()` (returns the BoC) — used by `use-dynamic-wallet.ts`.
 - **Telegram OAuth sign-in flow** — `src/lib/dynamic-telegram-auth.ts` — drives the 3-step OAuth code+state handshake (`/telegram/auth` → `/providers/telegram/oauthResult` → `/telegram/signin`) our Dynamic provider requires, then injects the session via `updateAuthFromVerifyResponse`. Called by `sign-in.tsx`.
 - **Telegram auth bot (server)** — `api/bot.ts` — Vercel webhook + `?action=mint` endpoint that validates WebApp initData and returns the `telegramAuthToken` JWT AND the `telegramUser` object the OAuth flow posts to `/telegram/auth`. Has its own `api/tsconfig.json` (Node), excluded from the Vite app build.
 - **Home / Aave market list + balance** — `src/routes/index.tsx` (hooks: `use-aave-markets`, `use-usdc-supply-balance`)
