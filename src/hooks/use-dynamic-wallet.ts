@@ -73,7 +73,42 @@ export function useDynamicWallet(): DynamicWallet {
         if (!evmWallet || !isEthereumWallet(evmWallet)) {
           throw new Error("No EVM wallet available from Dynamic");
         }
-        return evmWallet.getWalletClient(chainId);
+        // Dynamic's getWalletClient(chainId) returns falsy → throws "Unable to
+        // retrieve WalletClient" when the embedded WaaS connector can't build a
+        // client for that chain in the TMA. Make it resilient:
+        //  1. Ensure the wallet is on the target chain first (switchNetwork),
+        //     so the connector has the network active.
+        //  2. Try with the chainId; if that yields no client, retry with no arg
+        //     (uses the wallet's current/default chain).
+        const numericChain = chainId ? Number(chainId) : undefined;
+        if (numericChain) {
+          try {
+            // switchNetwork may be a method on the wallet or its connector.
+            const w = evmWallet as unknown as {
+              switchNetwork?: (id: number) => Promise<unknown>;
+            };
+            if (typeof w.switchNetwork === "function") {
+              await w.switchNetwork(numericChain);
+            }
+          } catch {
+            // Non-fatal — getWalletClient may still succeed.
+          }
+        }
+        try {
+          const client = await evmWallet.getWalletClient(chainId);
+          if (client) return client;
+        } catch (e) {
+          // Fall through to the no-arg attempt before giving up.
+          if (!chainId) throw e;
+        }
+        // Retry without the chainId (current chain).
+        const fallback = await evmWallet.getWalletClient();
+        if (!fallback) {
+          throw new Error(
+            "Unable to retrieve WalletClient for Base. The embedded wallet could not initialize a signer — reopen the app and try again.",
+          );
+        }
+        return fallback;
       },
       sendTonMessages: ton.sendMessages,
       signOut: handleLogOut,
