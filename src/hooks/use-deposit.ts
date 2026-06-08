@@ -81,16 +81,24 @@ export function useDeposit() {
   } = useDynamicWallet();
   const [state, setState] = useState<DepositState>(INITIAL);
   const trackUnsubRef = useRef<(() => void) | null>(null);
+  // Hard re-entry guard: a second runDeposit while one is in flight must NEVER
+  // fund a second escrow (double-spend). State-based `running` guards the UI,
+  // but a ref guards against rapid double-taps / races before state settles.
+  const inFlightRef = useRef(false);
 
   const reset = useCallback(() => {
     trackUnsubRef.current?.();
     trackUnsubRef.current = null;
+    inFlightRef.current = false;
     setState(INITIAL);
   }, []);
 
   const runDeposit = useCallback(
     async (quote: Quote) => {
+      if (inFlightRef.current) return; // already depositing — ignore re-entry
+      inFlightRef.current = true;
       if (!evmAddress || !tonAddress || !tonWallet) {
+        inFlightRef.current = false; // pre-funding failure — allow retry
         setState({
           ...INITIAL,
           stage: "error",
@@ -99,6 +107,7 @@ export function useDeposit() {
         return;
       }
       if (!isHtlcOrderQuote(quote)) {
+        inFlightRef.current = false; // pre-funding failure — allow retry
         setState({
           ...INITIAL,
           stage: "error",
@@ -225,6 +234,7 @@ export function useDeposit() {
           // pending-deposit record here.
           subscription.unsubscribe();
           trackUnsubRef.current = null;
+          inFlightRef.current = false;
           setState((s) => ({
             ...s,
             stage: "error",
@@ -256,6 +266,7 @@ export function useDeposit() {
         // persisted record is no longer needed.
         clearPendingDeposit(quote.quoteId);
 
+        inFlightRef.current = false;
         setState((s) => ({
           ...s,
           stage: "done",
@@ -265,6 +276,7 @@ export function useDeposit() {
         console.error("deposit failed", e);
         trackUnsubRef.current?.();
         trackUnsubRef.current = null;
+        inFlightRef.current = false;
         setState((s) => ({
           ...s,
           stage: "error",
