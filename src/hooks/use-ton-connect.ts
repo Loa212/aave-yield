@@ -8,6 +8,32 @@ import { useCallback, useMemo } from "react";
 import { dbg } from "@/lib/debug-log";
 
 /**
+ * Convert @wallet's universal link into the TonConnect CONFIRM deeplink.
+ *
+ * The raw universalLink `https://t.me/wallet?attach=wallet` opens @wallet's
+ * SEND / "choose a contact" screen. To make @wallet check the bridge for the
+ * pending TonConnect request and show the transaction CONFIRM prompt, the link
+ * must be the direct-link form with `startapp=tonconnect` — exactly what the
+ * SDK's own redirectToTelegram builds (convertToTGDirectLink: drop `attach`,
+ * append `/start`; then add `startapp=tonconnect`).
+ */
+function toTonConnectConfirmLink(universalLink: string): string {
+  try {
+    const url = new URL(universalLink);
+    if (url.searchParams.has("attach")) {
+      url.searchParams.delete("attach");
+      url.pathname += "/start";
+    }
+    if (!url.searchParams.has("startapp")) {
+      url.searchParams.append("startapp", "tonconnect");
+    }
+    return url.toString();
+  } catch {
+    return universalLink;
+  }
+}
+
+/**
  * Open a t.me link via Telegram's native opener (falls back to window.open).
  * Used to surface @wallet after the raw connector delivers the tx request, so
  * the user can approve it.
@@ -182,14 +208,15 @@ export function useTonConnect(): TonConnectWallet {
           ? (tonConnectUI.wallet as { universalLink?: string }).universalLink
           : undefined;
 
-      // OPEN @wallet FIRST. The send's internal pre-POST await chain appears to
-      // stall while the WebView is foregrounded; opening @wallet now means the
-      // user is on the confirm screen, and @wallet pulls the pending request off
-      // the bridge SSE once the POST lands. Then fire the send.
-      if (walletUniversalLink) {
-        dbg("info", "opening @wallet FIRST");
-        openTelegramLinkSafe(walletUniversalLink);
-      }
+      // The CONFIRM deeplink: t.me/wallet?attach=wallet (the raw universalLink)
+      // opens @wallet's SEND/"choose a contact" screen — WRONG. To make @wallet
+      // pull the pending TonConnect request off the bridge and show the CONFIRM
+      // prompt, we must open the direct-link form with startapp=tonconnect (this
+      // mirrors the SDK's own redirectToTelegram). We open it AFTER the POST has
+      // landed (in onRequestSent) so the request is already on the bridge.
+      const confirmLink = walletUniversalLink
+        ? toTonConnectConfirmLink(walletUniversalLink)
+        : undefined;
 
       try {
         dbg("info", "calling RAW connector.sendTransaction");
@@ -200,7 +227,10 @@ export function useTonConnect(): TonConnectWallet {
             messages,
           },
           {
-            onRequestSent: () => dbg("info", "raw onRequestSent (POST landed)"),
+            onRequestSent: () => {
+              dbg("info", "raw onRequestSent (POST landed) → open @wallet");
+              if (confirmLink) openTelegramLinkSafe(confirmLink);
+            },
           },
         );
         const timeoutP = new Promise<never>((_, reject) =>
