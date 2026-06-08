@@ -115,44 +115,51 @@ export function useTonConnect(): TonConnectWallet {
       } catch (e) {
         dbg("error", `connectionRestored failed: ${String(e)}`);
       }
-      // Also force a fresh gateway in case it had paused while hidden.
-      try {
-        await tonConnectUI.connector?.restoreConnection?.();
-        dbg("info", "bridge restoreConnection() done");
-      } catch (e) {
-        dbg("error", `restoreConnection failed: ${String(e)}`);
-      }
+      // NOTE: removed the redundant restoreConnection() — connectionRestored
+      // already settled and gateway.isReady=true. restoreConnection() swaps the
+      // provider/gateway, which may transiently null the session the send needs.
 
-      // Log whether the SSE gateway is actually OPEN (reachable via fetch != SSE
-      // EventSource open in the iOS WebView). If it's not ready, the send POST
-      // succeeds but the SIGNED RESPONSE can't be delivered back over the SSE.
+      // Log gateway readiness + that we're about to call sendTransaction (the
+      // previous run went silent right here — no POST, no onRequestSent — so we
+      // pin whether the call even starts and whether it reaches the bridge POST).
       try {
         // biome-ignore lint/suspicious/noExplicitAny: reading private SDK state
         const gw = (tonConnectUI.connector as any)?.provider?.gateway;
         dbg(
           "info",
-          `gateway isReady=${gw?.isReady} isConnecting=${gw?.isConnecting} isClosed=${gw?.isClosed}`,
+          `gateway isReady=${gw?.isReady} acct=${tonConnectUI.account?.address?.slice(0, 8)} → calling sendTransaction`,
         );
       } catch {
         /* ignore */
       }
 
+      // Race the send against a timeout so a silent hang SURFACES instead of
+      // spinning forever. The send itself is unaffected if it resolves first.
+      const sendPromise = tonConnectUI.sendTransaction(
+        {
+          validUntil,
+          from: tonConnectUI.account?.address,
+          messages,
+        },
+        {
+          modals: [],
+          notifications: [],
+          onRequestSent: (redirectToWallet) => {
+            dbg("info", "onRequestSent → opening @wallet");
+            redirectToWallet();
+          },
+        },
+      );
+      const timeoutMarker = new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("SEND_TIMEOUT_30s — call never resolved")),
+          30_000,
+        ),
+      );
       try {
-        const result = await tonConnectUI.sendTransaction(
-          {
-            validUntil,
-            from: tonConnectUI.account?.address,
-            messages,
-          },
-          {
-            modals: [],
-            notifications: [],
-            onRequestSent: (redirectToWallet) => {
-              dbg("info", "onRequestSent → opening @wallet");
-              redirectToWallet();
-            },
-          },
-        );
+        const result = (await Promise.race([sendPromise, timeoutMarker])) as {
+          boc: string;
+        };
         dbg("info", `tonconnect send OK: boc=${result.boc?.slice(0, 16)}…`);
         return result.boc;
       } catch (e) {
