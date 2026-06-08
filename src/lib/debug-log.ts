@@ -85,8 +85,21 @@ export function installDebugCapture() {
   // Wrap fetch to surface failing/slow Dynamic API calls.
   const origFetch = window.fetch.bind(window);
   window.fetch = async (...args: Parameters<typeof fetch>) => {
+    // args[0] may be a string, a URL object, OR a Request. The TonConnect SDK's
+    // bridge POST calls fetch(new URL(...), init) — a URL object — so we MUST
+    // handle that case. (A prior version assumed string|Request and did
+    // (args[0] as Request).url on a URL object → undefined → "url.slice" threw
+    // INSIDE this wrapper, so the real bridge fetch never ran and the SDK
+    // retried forever: the entire 40s send hang was THIS bug, not the WebView.)
+    const input = args[0];
     const url =
-      typeof args[0] === "string" ? args[0] : (args[0] as Request).url;
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input instanceof Request
+            ? input.url
+            : String(input);
     // Show the path tail (the endpoint), not the truncated host — we need to see
     // WHICH dynamic endpoints run before /telegram/signin.
     const short = (() => {
@@ -99,7 +112,7 @@ export function installDebugCapture() {
     })();
     const method =
       (args[1] as RequestInit | undefined)?.method ??
-      (typeof args[0] !== "string" ? (args[0] as Request).method : "GET");
+      (input instanceof Request ? input.method : "GET");
     // For the telegram signin call, log which fields we send (esp. whether
     // sessionPublicKey/code are present — the OpenAPI marks them required).
     if (/telegram\/signin/i.test(url)) {
