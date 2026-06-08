@@ -65,36 +65,39 @@ export function useTonConnect(): TonConnectWallet {
         "info",
         `msg0: to=${m0?.address?.slice(0, 14)} amt=${m0?.amount} payloadLen=${m0?.payload?.length ?? 0} stateInit=${m0?.stateInit ? "yes" : "no"}`,
       );
-      // THE #340 FIX — `modals: []`.
-      //
-      // tonConnectUI.sendTransaction wraps the real bridge call in an
-      // abort-on-modal-close guard (verified in @tonconnect/ui source):
-      //
-      //   onTransactionModalStateChange((action) => {
-      //     if (action?.openModal) return;
-      //     unsubscribe();
-      //     if (!action) abortController.abort();  // -> "Transaction was not sent"
-      //   })
-      //   ... waitForSendTransaction({ signal: abortController.signal })
-      //
-      // In a Mini App, opening @wallet to sign DISMISSES our "before" modal →
-      // the modal's onClose fires setAction(null) → the guard aborts the bridge
-      // wait BEFORE @wallet's signed response comes back. The send itself was
-      // never really cancelled; only our wait was killed. That is SDK bug #340.
-      //
-      // With `modals: []` the SDK never opens its modal: the first state change
-      // carries `{ openModal: false }` (a non-null action), so the guard
-      // unsubscribes WITHOUT aborting and is disarmed for the rest of the tx —
-      // any later setAction(null) is ignored. The bridge wait then runs to
-      // completion and receives @wallet's signature.
-      //
-      // BUT suppressing the modal also suppresses the modal-driven open, so we
-      // must open @wallet OURSELVES. The SDK hands us its OWN fully-correct
-      // redirect fn as the arg to onRequestSent (enriched with sessionId +
-      // traceId, proper t.me/startapp=tonconnect&ret=back link). We call it so
-      // @wallet opens on the CONFIRM screen — without re-arming the abort guard.
-      // (Verified the first attempt with modals:[] alone hung after
-      // "tonconnect send: 1 msg" with no open — because nothing redirected.)
+      // DIAGNOSIS (from logs): with modals:[] the abort guard is gone, but
+      // `onRequestSent` NEVER fires — the send hangs BEFORE delivery. In the SDK,
+      // gateway.send() POSTs to bridge.tonapi.io with attempts=MAX_SAFE_INTEGER
+      // (infinite retry, no timeout); if that POST stalls in the TMA WebView it
+      // retries forever silently → onRequestSent never called → @wallet never
+      // opens. So we (a) PROBE the bridge POST reachability, and (b) RESTORE the
+      // connection right before sending so the gateway is fresh.
+
+      // (a) One-shot bridge reachability probe — does the WebView's fetch reach
+      // the bridge at all? GET the bridge events path; any HTTP response (even
+      // 4xx) proves reachability. A network error proves the WebView is blocking
+      // it (the real #340 cause for us).
+      try {
+        const probe = await fetch(
+          "https://bridge.tonapi.io/bridge/events?client_id=probe",
+          { method: "GET", signal: AbortSignal.timeout(4000) },
+        );
+        dbg("info", `bridge probe: HTTP ${probe.status} (reachable)`);
+      } catch (e) {
+        dbg(
+          "error",
+          `bridge probe FAILED: ${String(e)} (WebView blocking it?)`,
+        );
+      }
+
+      // (b) Restore the bridge connection so the gateway/SSE is fresh at send.
+      try {
+        await tonConnectUI.connector?.restoreConnection?.();
+        dbg("info", "bridge restoreConnection() done");
+      } catch (e) {
+        dbg("error", `restoreConnection failed: ${String(e)}`);
+      }
+
       try {
         const result = await tonConnectUI.sendTransaction(
           {
