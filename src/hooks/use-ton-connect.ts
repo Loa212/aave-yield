@@ -3,7 +3,7 @@ import {
   useTonConnectUI,
   useTonWallet,
 } from "@tonconnect/ui-react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { dbg } from "@/lib/debug-log";
 
 /** A single TonConnect-shaped message (what tonBuildEscrowTransfer emits). */
@@ -48,25 +48,6 @@ export function useTonConnect(): TonConnectWallet {
   const friendlyAddress = useTonAddress(); // bounceable user-friendly form
   const wallet = useTonWallet();
 
-  // THE TMA FIX: the TonConnect SDK pauses the bridge SSE connection when the
-  // tab is hidden. In a Mini App, opening @wallet to sign hides our WebView →
-  // the bridge pauses → @wallet's SIGNED response can't be delivered back →
-  // "Transaction was not sent". Re-open the bridge whenever we regain focus so
-  // the pending signed response is received. (We call unPauseConnection on the
-  // LIVE connector the hook uses — not a second instance.)
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === "visible") {
-        void tonConnectUI.connector
-          ?.unPauseConnection?.()
-          .then(() => dbg("info", "ton bridge unpaused (visible)"))
-          .catch(() => undefined);
-      }
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [tonConnectUI]);
-
   const connect = useCallback(async () => {
     // Telegram's @wallet (TonConnect app name 'telegram-wallet') — the native
     // in-Telegram wallet for a Mini App.
@@ -84,20 +65,40 @@ export function useTonConnect(): TonConnectWallet {
         "info",
         `msg0: to=${m0?.address?.slice(0, 14)} amt=${m0?.amount} payloadLen=${m0?.payload?.length ?? 0} stateInit=${m0?.stateInit ? "yes" : "no"}`,
       );
-      // EXACT match to STON.fi Omniston's reference example (same SDK 2.4.4,
-      // same escrow): bare sendTransaction with NO options object, and pass
-      // `from` explicitly. Adding modals/returnStrategy/twaReturnUrl options was
-      // triggering the TMA abort; the defaults work.
+      // THE #340 FIX — `modals: []`.
+      //
+      // tonConnectUI.sendTransaction wraps the real bridge call in an
+      // abort-on-modal-close guard (verified in @tonconnect/ui source):
+      //
+      //   onTransactionModalStateChange((action) => {
+      //     if (action?.openModal) return;
+      //     unsubscribe();
+      //     if (!action) abortController.abort();  // -> "Transaction was not sent"
+      //   })
+      //   ... waitForSendTransaction({ signal: abortController.signal })
+      //
+      // In a Mini App, opening @wallet to sign DISMISSES our "before" modal →
+      // the modal's onClose fires setAction(null) → the guard aborts the bridge
+      // wait BEFORE @wallet's signed response comes back. The send itself was
+      // never really cancelled; only our wait was killed. That is SDK bug #340.
+      //
+      // With `modals: []` the SDK never opens its modal: the first state change
+      // carries `{ openModal: false }` (a non-null action), so the guard
+      // unsubscribes WITHOUT aborting and is disarmed for the rest of the tx —
+      // any later setAction(null) is ignored. The bridge wait then runs to
+      // completion and receives @wallet's signature. Crucially, the SDK's own
+      // redirect to @wallet's confirm screen (redirectAfterRequestSent →
+      // redirectToTelegram, gated only on the wallet's openMethod, NOT on
+      // modals) still fires, so @wallet still opens correctly.
       try {
-        // Ensure the bridge is live before sending (it may have paused).
-        await tonConnectUI.connector
-          ?.unPauseConnection?.()
-          .catch(() => undefined);
-        const result = await tonConnectUI.sendTransaction({
-          validUntil,
-          from: tonConnectUI.account?.address,
-          messages,
-        });
+        const result = await tonConnectUI.sendTransaction(
+          {
+            validUntil,
+            from: tonConnectUI.account?.address,
+            messages,
+          },
+          { modals: [], notifications: [] },
+        );
         dbg("info", `tonconnect send OK: boc=${result.boc?.slice(0, 16)}…`);
         return result.boc;
       } catch (e) {
