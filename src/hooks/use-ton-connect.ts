@@ -218,6 +218,36 @@ export function useTonConnect(): TonConnectWallet {
         ? toTonConnectConfirmLink(walletUniversalLink)
         : undefined;
 
+      // PINPOINT THE HANG: the send runs 40s with NO bridge POST even though a
+      // manual POST to the same endpoint returns in ~108ms. So it stalls on an
+      // await BEFORE gateway.send — most likely connectionStorage.getNextRpcRequestId
+      // (a storage read). Time each suspect step directly.
+      try {
+        const provider = connector?.provider;
+        const cs = provider?.connectionStorage;
+        if (cs?.getNextRpcRequestId) {
+          const t = Date.now();
+          const idP = cs.getNextRpcRequestId();
+          const raced = await Promise.race([
+            idP.then((v: unknown) => ({ ok: true, v })),
+            new Promise((res) => setTimeout(() => res({ ok: false }), 5000)),
+          ]);
+          dbg(
+            "info",
+            `getNextRpcRequestId ${(raced as { ok: boolean }).ok ? `OK=${JSON.stringify((raced as { v: unknown }).v)}` : "HUNG >5s"} in ${Date.now() - t}ms`,
+          );
+        } else {
+          dbg("info", "no connectionStorage.getNextRpcRequestId found");
+        }
+        // Also confirm the provider + gateway identity.
+        dbg(
+          "info",
+          `provider=${provider ? "set" : "NULL"} gateway=${provider?.gateway ? "set" : "NULL"} session=${provider?.session ? "set" : "NULL"}`,
+        );
+      } catch (e) {
+        dbg("error", `pre-send probe err: ${String(e)}`);
+      }
+
       try {
         dbg("info", "calling RAW connector.sendTransaction");
         const sendP = connector.sendTransaction(
