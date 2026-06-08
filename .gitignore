@@ -24,3 +24,4 @@ npm-debug.log*
 .DS_Store
 *.local
 .idea
+.claude/scheduled_tasks.lock
