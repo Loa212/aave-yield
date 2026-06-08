@@ -44,19 +44,20 @@ const queryClient = new QueryClient({
   },
 });
 
-// Connectors. DynamicWaasEVMConnectors is REQUIRED to provision a real
-// signing embedded (Turnkey-backed) EVM wallet. Without it, Dynamic created a
-// "Fallback Connector" shell with an address but NO signer — every
-// getWalletClient() threw "Unable to retrieve WalletClient" (and the
-// "Failed to get wallet provider...missing walletName" error fired on load),
-// so the Aave supply tx could never be signed even though the bridge delivered
-// USDC to Base. EthereumWalletConnectors stays for external EVM wallets;
-// TonWalletConnectors stays for Telegram social login (the TON SIGNING itself
-// is handled by raw TonConnect — see use-ton-connect.ts).
+// Connectors. The EVM wallet must be a SIGNING embedded (Turnkey) wallet, not a
+// "Fallback Connector" shell (which has an address but no signer → every
+// getWalletClient() throws "Unable to retrieve WalletClient", blocking the Aave
+// supply tx). Provisioning that signer is gated by the Dynamic DASHBOARD:
+//   Embedded Wallets must be ENABLED for this environment, AND Base (8453) must
+//   be enabled under Chains. Without the dashboard toggle, the SDK falls back to
+//   the shell regardless of connectors (that's the per-load "Failed to get
+//   wallet provider...missing walletName" error). DynamicWaasEVMConnectors is
+//   included explicitly to register the WaaS provider; EthereumWalletConnectors
+//   also carries the embedded path. TonWalletConnectors stays for Telegram
+//   social login (TON SIGNING itself uses raw TonConnect — use-ton-connect.ts).
 //
-// NOTE: Base (chain 8453) is configured in the Dynamic DASHBOARD (Networks), NOT
-// via a settings.overrides.evmNetworks override (that override broke auth — see
-// git history).
+// NOTE: Base is enabled in the DASHBOARD (Chains), NOT via a
+// settings.overrides.evmNetworks override (that override broke auth — git log).
 const dynamicSettings: DynamicContextProps["settings"] = {
   environmentId: DYNAMIC_ENVIRONMENT_ID,
   walletConnectors: [
