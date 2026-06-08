@@ -86,10 +86,15 @@ export function useTonConnect(): TonConnectWallet {
       // carries `{ openModal: false }` (a non-null action), so the guard
       // unsubscribes WITHOUT aborting and is disarmed for the rest of the tx —
       // any later setAction(null) is ignored. The bridge wait then runs to
-      // completion and receives @wallet's signature. Crucially, the SDK's own
-      // redirect to @wallet's confirm screen (redirectAfterRequestSent →
-      // redirectToTelegram, gated only on the wallet's openMethod, NOT on
-      // modals) still fires, so @wallet still opens correctly.
+      // completion and receives @wallet's signature.
+      //
+      // BUT suppressing the modal also suppresses the modal-driven open, so we
+      // must open @wallet OURSELVES. The SDK hands us its OWN fully-correct
+      // redirect fn as the arg to onRequestSent (enriched with sessionId +
+      // traceId, proper t.me/startapp=tonconnect&ret=back link). We call it so
+      // @wallet opens on the CONFIRM screen — without re-arming the abort guard.
+      // (Verified the first attempt with modals:[] alone hung after
+      // "tonconnect send: 1 msg" with no open — because nothing redirected.)
       try {
         const result = await tonConnectUI.sendTransaction(
           {
@@ -97,7 +102,14 @@ export function useTonConnect(): TonConnectWallet {
             from: tonConnectUI.account?.address,
             messages,
           },
-          { modals: [], notifications: [] },
+          {
+            modals: [],
+            notifications: [],
+            onRequestSent: (redirectToWallet) => {
+              dbg("info", "onRequestSent → opening @wallet");
+              redirectToWallet();
+            },
+          },
         );
         dbg("info", `tonconnect send OK: boc=${result.boc?.slice(0, 16)}…`);
         return result.boc;
