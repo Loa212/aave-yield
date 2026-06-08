@@ -8,6 +8,7 @@ import type { Wallet } from "@dynamic-labs/wallet-connector-core";
 import { useMemo } from "react";
 import type { Address, WalletClient } from "viem";
 import { type TonMessageInput, useTonConnect } from "@/hooks/use-ton-connect";
+import { dbg } from "@/lib/debug-log";
 
 export type { TonMessageInput };
 
@@ -73,6 +74,21 @@ export function useDynamicWallet(): DynamicWallet {
         if (!evmWallet || !isEthereumWallet(evmWallet)) {
           throw new Error("No EVM wallet available from Dynamic");
         }
+        // DIAGNOSE: log the wallet's connector identity. "Unable to retrieve
+        // WalletClient" + the "missing walletName" credential error suggests the
+        // EVM wallet isn't a properly-provisioned embedded (turnkey) wallet.
+        try {
+          const w = evmWallet as unknown as {
+            key?: string;
+            connector?: { name?: string; key?: string };
+          };
+          dbg(
+            "info",
+            `evmWallet key=${w.key ?? "?"} connector=${w.connector?.name ?? w.connector?.key ?? "?"} chain=${chainId ?? "default"}`,
+          );
+        } catch {
+          /* ignore */
+        }
         // Dynamic's getWalletClient(chainId) returns falsy → throws "Unable to
         // retrieve WalletClient" when the embedded WaaS connector can't build a
         // client for that chain in the TMA. Make it resilient:
@@ -96,19 +112,26 @@ export function useDynamicWallet(): DynamicWallet {
         }
         try {
           const client = await evmWallet.getWalletClient(chainId);
+          dbg(
+            "info",
+            `getWalletClient(${chainId}) → ${client ? "OK" : "NULL"}`,
+          );
           if (client) return client;
         } catch (e) {
-          // Fall through to the no-arg attempt before giving up.
+          dbg("error", `getWalletClient(${chainId}) threw: ${String(e)}`);
           if (!chainId) throw e;
         }
         // Retry without the chainId (current chain).
-        const fallback = await evmWallet.getWalletClient();
-        if (!fallback) {
-          throw new Error(
-            "Unable to retrieve WalletClient for Base. The embedded wallet could not initialize a signer — reopen the app and try again.",
-          );
+        try {
+          const fallback = await evmWallet.getWalletClient();
+          dbg("info", `getWalletClient() no-arg → ${fallback ? "OK" : "NULL"}`);
+          if (fallback) return fallback;
+        } catch (e) {
+          dbg("error", `getWalletClient() no-arg threw: ${String(e)}`);
         }
-        return fallback;
+        throw new Error(
+          "Unable to retrieve WalletClient for Base. The embedded wallet could not initialize a signer — reopen the app and try again.",
+        );
       },
       sendTonMessages: ton.sendMessages,
       signOut: handleLogOut,
