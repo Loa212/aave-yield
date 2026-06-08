@@ -123,8 +123,10 @@ export function installDebugCapture() {
     const started = Date.now() - t0;
     try {
       const res = await origFetch(...args);
-      // Only log non-2xx or Dynamic-related calls to avoid noise.
-      if (!res.ok || /dynamic|dynamicauth/i.test(url)) {
+      // Only log non-2xx or Dynamic-related calls to avoid noise — PLUS all
+      // TonConnect bridge traffic (walletbot.me / tonapi) so we can see whether
+      // the send POST actually completes.
+      if (!res.ok || /dynamic|dynamicauth|walletbot|tonapi|bridge/i.test(url)) {
         dbg(
           "net",
           `${method} ${res.status} ${short} (+${Date.now() - t0 - started}ms)`,

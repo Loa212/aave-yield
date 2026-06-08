@@ -123,6 +123,20 @@ export function useTonConnect(): TonConnectWallet {
         dbg("error", `restoreConnection failed: ${String(e)}`);
       }
 
+      // Log whether the SSE gateway is actually OPEN (reachable via fetch != SSE
+      // EventSource open in the iOS WebView). If it's not ready, the send POST
+      // succeeds but the SIGNED RESPONSE can't be delivered back over the SSE.
+      try {
+        // biome-ignore lint/suspicious/noExplicitAny: reading private SDK state
+        const gw = (tonConnectUI.connector as any)?.provider?.gateway;
+        dbg(
+          "info",
+          `gateway isReady=${gw?.isReady} isConnecting=${gw?.isConnecting} isClosed=${gw?.isClosed}`,
+        );
+      } catch {
+        /* ignore */
+      }
+
       try {
         const result = await tonConnectUI.sendTransaction(
           {
