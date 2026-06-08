@@ -4,6 +4,7 @@ import {
   DynamicContextProvider,
 } from "@dynamic-labs/sdk-react-core";
 import { TonWalletConnectors } from "@dynamic-labs/ton";
+import { DynamicWaasEVMConnectors } from "@dynamic-labs/waas-evm";
 import { OmnistonProvider } from "@ston-fi/omniston-sdk-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TonConnectUIProvider } from "@tonconnect/ui-react";
@@ -43,18 +44,26 @@ const queryClient = new QueryClient({
   },
 });
 
-// We enable BOTH Ethereum and TON connectors so Dynamic provisions a stable EVM
-// EOA (Aave side) AND a TON wallet (USDT-TON side) from the single Telegram login.
+// Connectors. DynamicWaasEVMConnectors is REQUIRED to provision a real
+// signing embedded (Turnkey-backed) EVM wallet. Without it, Dynamic created a
+// "Fallback Connector" shell with an address but NO signer — every
+// getWalletClient() threw "Unable to retrieve WalletClient" (and the
+// "Failed to get wallet provider...missing walletName" error fired on load),
+// so the Aave supply tx could never be signed even though the bridge delivered
+// USDC to Base. EthereumWalletConnectors stays for external EVM wallets;
+// TonWalletConnectors stays for Telegram social login (the TON SIGNING itself
+// is handled by raw TonConnect — see use-ton-connect.ts).
 //
 // NOTE: Base (chain 8453) is configured in the Dynamic DASHBOARD (Networks), NOT
-// via a settings.overrides.evmNetworks override. The in-code override was tried
-// and REVERTED — it disrupted the WaaS embedded-wallet provider registration,
-// causing "Failed to get wallet provider for verified credential: missing
-// walletName" and hanging the AuthGate on init. The dashboard config is the
-// correct, non-breaking way to add the network.
+// via a settings.overrides.evmNetworks override (that override broke auth — see
+// git history).
 const dynamicSettings: DynamicContextProps["settings"] = {
   environmentId: DYNAMIC_ENVIRONMENT_ID,
-  walletConnectors: [EthereumWalletConnectors, TonWalletConnectors],
+  walletConnectors: [
+    DynamicWaasEVMConnectors,
+    EthereumWalletConnectors,
+    TonWalletConnectors,
+  ],
   // Telegram social login is configured in the Dynamic dashboard; the SDK picks
   // it up automatically inside the Telegram WebView.
 };
