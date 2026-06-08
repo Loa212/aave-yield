@@ -253,9 +253,16 @@ export function useTonConnect(): TonConnectWallet {
           gw.__wrapped = true;
           const origSend = gw.send?.bind(gw);
           const origPost = gw.post?.bind(gw);
+          dbg(
+            "info",
+            `gateway.bridgeUrl=${gw.bridgeUrl ?? "UNDEFINED"} sessionId=${gw.sessionId ? "set" : "UNDEF"}`,
+          );
           if (origSend) {
             gw.send = async (...a: unknown[]) => {
-              dbg("info", `>> gateway.send ENTER (args=${a.length})`);
+              dbg(
+                "info",
+                `>> gateway.send ENTER args=${a.length} this.bridgeUrl=${(gw as { bridgeUrl?: string }).bridgeUrl ?? "UNDEF"}`,
+              );
               try {
                 const r = await origSend(...a);
                 dbg("info", ">> gateway.send EXIT ok");
