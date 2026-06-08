@@ -32,8 +32,8 @@ const TONCONNECT_MANIFEST_URL =
 // because they are browser dApps, NOT Mini Apps — they never hit this.
 const TONBRIDGE_PROXY_URL =
   typeof window !== "undefined"
-    ? `${window.location.origin}/_tonbridge`
-    : "https://aave-yield-chi.vercel.app/_tonbridge";
+    ? `${window.location.origin}/api/tonbridge`
+    : "https://aave-yield-chi.vercel.app/api/tonbridge";
 
 // Full override for Telegram's @wallet (app_name "telegram-wallet", name
 // "Wallet") with our proxied bridgeUrl. The SDK's mergeConcat matches by `name`

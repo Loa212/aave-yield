@@ -113,7 +113,7 @@ export function useTonConnect(): TonConnectWallet {
       // Probe the PROXY POST (the operation that hangs direct). GET already
       // works direct; the POST to /message is what stalls in the WebView. Test
       // the same-origin proxy POST — if it returns fast, the proxy fixes it.
-      const proxyBase = `${window.location.origin}/_tonbridge`;
+      const proxyBase = `${window.location.origin}/api/tonbridge`;
       try {
         const t = Date.now();
         const probe = await fetch(

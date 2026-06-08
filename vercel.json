@@ -4,11 +4,11 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/_tonbridge/:path*",
-      "destination": "https://walletbot.me/tonconnect-bridge/bridge/:path*"
+      "source": "/api/tonbridge/:path*",
+      "destination": "/api/tonbridge"
     },
     {
-      "source": "/((?!api|assets|favicon|_tonbridge|.*\\.).*)",
+      "source": "/((?!api|assets|favicon|.*\\.).*)",
       "destination": "/index.html"
     }
   ]
