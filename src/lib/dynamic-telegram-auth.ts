@@ -30,7 +30,6 @@ import {
   getSessionKeys,
   updateAuthFromVerifyResponse,
 } from "@dynamic-labs-sdk/client/core";
-import { dbg } from "@/lib/debug-log";
 
 /** The telegramUser shape Dynamic's /telegram/auth expects (from /api/bot mint). */
 export interface TelegramUserPayload {
@@ -108,11 +107,9 @@ export async function telegramOAuthSignIn(
 
   // SDK-owned session keypair (SDK keeps the private key).
   const sessionPublicKey = await getSessionPublicKeyBase64Url();
-  dbg("info", "tg-oauth: session key ready");
 
   // Step 1 — establish the state and issue an OAuth code for this telegramUser.
   const auth = await postJson("/telegram/auth", { state, telegramUser });
-  dbg("info", `tg-oauth: /telegram/auth -> ${auth.status}`);
   if (auth.status !== 202) {
     throw new Error(
       `/telegram/auth failed: ${auth.status} ${JSON.stringify(auth.json)}`,
@@ -122,10 +119,6 @@ export async function telegramOAuthSignIn(
   // Step 2 — retrieve the OAuth code for the state.
   const result = await postJson("/providers/telegram/oauthResult", { state });
   const code = (result.json as { code?: string } | null)?.code;
-  dbg(
-    "info",
-    `tg-oauth: oauthResult -> ${result.status} code=${code ? "yes" : "no"}`,
-  );
   if (!code) {
     throw new Error(
       `oauthResult returned no code: ${result.status} ${JSON.stringify(result.json)}`,
@@ -140,7 +133,6 @@ export async function telegramOAuthSignIn(
     telegramAuthToken,
     forceCreateUser: true,
   });
-  dbg("info", `tg-oauth: /telegram/signin -> ${signin.status}`);
   if (signin.status !== 200) {
     throw new Error(
       `/telegram/signin failed: ${signin.status} ${JSON.stringify(signin.json)}`,
@@ -158,6 +150,5 @@ export async function telegramOAuthSignIn(
     { response: signin.json as VerifyResponseArg },
     getDefaultClient(),
   );
-  dbg("info", "tg-oauth: session injected — auth complete");
   return true;
 }

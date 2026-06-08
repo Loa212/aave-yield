@@ -68,6 +68,8 @@ export interface TonConnectWallet {
   isConnected: boolean;
   /** Open the connect modal targeted at Telegram's @wallet. */
   connect: () => Promise<void>;
+  /** Disconnect the connected TON wallet (used by sign-out). */
+  disconnect: () => Promise<void>;
   /**
    * Sign + send TonConnect messages. Returns the resulting BoC string.
    * (sendTransaction resolves to { boc } — we unwrap it.)
@@ -101,6 +103,10 @@ export function useTonConnect(): TonConnectWallet {
     await tonConnectUI.openSingleWalletModal("telegram-wallet");
   }, [tonConnectUI]);
 
+  const disconnect = useCallback(async () => {
+    if (tonConnectUI.connected) await tonConnectUI.disconnect();
+  }, [tonConnectUI]);
+
   const sendMessages = useCallback(
     async (messages: TonMessageInput[], validUntil: number) => {
       // WHY THE RAW CONNECTOR (not tonConnectUI.sendTransaction): inside the
@@ -108,8 +114,9 @@ export function useTonConnect(): TonConnectWallet {
       // settles, so its sendTransaction hangs. The raw connector does the bridge
       // round-trip directly. We open @wallet's CONFIRM screen ourselves in
       // onRequestSent (after the request lands on the bridge) so the user can
-      // approve. See [[tonconnect-tma-send-blocked]] for the full saga — the
-      // headline bug was our own debug fetch wrapper crashing on URL-object args.
+      // approve. The headline bug behind the long "Transaction was not sent"
+      // saga was our own debug fetch wrapper crashing on URL-object args (since
+      // removed) — NOT the SDK or the WebView.
       // biome-ignore lint/suspicious/noExplicitAny: connector is the raw ITonConnect
       const connector = tonConnectUI.connector as any;
 
@@ -148,8 +155,9 @@ export function useTonConnect(): TonConnectWallet {
       tonAddress: friendlyAddress || undefined,
       isConnected: Boolean(wallet),
       connect,
+      disconnect,
       sendMessages,
     }),
-    [friendlyAddress, wallet, connect, sendMessages],
+    [friendlyAddress, wallet, connect, disconnect, sendMessages],
   );
 }

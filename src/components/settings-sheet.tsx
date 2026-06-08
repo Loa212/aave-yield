@@ -33,8 +33,16 @@ export function SettingsSheet() {
   }
 
   async function handleSignOut() {
-    await signOut();
-    navigate({ to: "/sign-in" });
+    try {
+      await signOut();
+    } catch (e) {
+      console.error("Sign out failed", e);
+    } finally {
+      // Always leave for /sign-in — even if a connector hiccups, the user should
+      // land on the sign-in screen rather than a sheet that looks like it did
+      // nothing. AuthGate re-checks auth state from there.
+      navigate({ to: "/sign-in" });
+    }
   }
 
   return (

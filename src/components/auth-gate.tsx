@@ -1,7 +1,6 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { type PropsWithChildren, useEffect, useState } from "react";
-import { DebugReadout } from "@/components/debug-readout";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
 
 /**
@@ -43,9 +42,6 @@ export function AuthGate({ children }: PropsWithChildren) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        {/* TEMP DEBUG: surfaces why we're stuck when there's no console (TG WebView).
-            Remove before the Loom. */}
-        <DebugReadout label="AuthGate spinner" />
       </div>
     );
   }

@@ -1,11 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
-import { DebugReadout } from "@/components/debug-readout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDynamicWallet } from "@/hooks/use-dynamic-wallet";
-import { dbg } from "@/lib/debug-log";
 import { telegramOAuthSignIn } from "@/lib/dynamic-telegram-auth";
 import { isInsideTelegram, mintAuthToken, notify } from "@/lib/telegram";
 
@@ -20,18 +18,9 @@ function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [autoTried, setAutoTried] = useState(false);
 
-  // TEMP DEBUG: trace auth-state transitions so we can see where it stalls.
-  useEffect(() => {
-    dbg(
-      "info",
-      `auth state: isAuthenticated=${isAuthenticated} evmAddress=${evmAddress ?? "none"}`,
-    );
-  }, [isAuthenticated, evmAddress]);
-
   // Once authenticated AND the EVM wallet has materialized, go home.
   useEffect(() => {
     if (isAuthenticated && evmAddress) {
-      dbg("info", "authenticated + evm ready → navigating home");
       notify("success");
       navigate({ to: "/" });
     }
@@ -44,9 +33,7 @@ function SignInPage() {
       // Mint the telegramAuthToken + telegramUser from the live WebApp initData
       // (our /api/bot?action=mint validates it server-side). Telegram strips
       // ?telegramAuthToken from web_app launch URLs on iOS, so we always mint.
-      dbg("info", "minting auth token from initData…");
       const minted = await mintAuthToken();
-      dbg("info", `mint result: ${minted ? "got token+user" : "null"}`);
 
       if (!minted) {
         setError(
@@ -59,11 +46,8 @@ function SignInPage() {
       // Drive the OAuth code+state flow our Dynamic provider requires (the bare
       // telegramSignIn({authToken}) path 400s on this env — see
       // src/lib/dynamic-telegram-auth.ts for the full reverse-engineered flow).
-      dbg("info", "telegramOAuthSignIn() calling…");
       await telegramOAuthSignIn(minted.telegramAuthToken, minted.telegramUser);
-      dbg("info", "telegramOAuthSignIn() returned ok");
     } catch (e) {
-      dbg("error", `sign-in threw: ${String(e)}`);
       console.error("Telegram sign-in failed", e);
       setError(
         e instanceof Error ? e.message : "Sign-in failed. Please try again.",
@@ -126,9 +110,6 @@ function SignInPage() {
           </p>
         </CardContent>
       </Card>
-
-      {/* TEMP DEBUG: remove before the Loom. */}
-      <DebugReadout label="sign-in" />
     </main>
   );
 }

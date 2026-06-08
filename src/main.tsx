@@ -2,13 +2,9 @@ import { setupInsideIframe } from "@dynamic-labs/utils";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { dbg, installDebugCapture } from "./lib/debug-log";
 import { initTelegram } from "./lib/telegram";
 import { routeTree } from "./routeTree.gen";
 import "./index.css";
-
-// TEMP DEBUG: capture errors/network from the very first tick.
-installDebugCapture();
 
 // Dynamic iframe setup — the fix for the "Invalid or expired OAuth state" 400.
 //
@@ -31,13 +27,10 @@ if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const parent = window.location.origin + window.location.pathname;
       u.searchParams.set("initial-parent-url", encodeURIComponent(parent));
       window.history.replaceState(null, "", u.toString());
-      dbg("info", "added initial-parent-url for iframe setup");
     }
     setupInsideIframe();
-    dbg("info", "setupInsideIframe() done");
-  } catch (e) {
-    // Non-fatal — the app must still load. Surface it for the debug readout.
-    dbg("error", `setupInsideIframe failed: ${String(e)}`);
+  } catch {
+    // Non-fatal — the app must still load.
   }
 }
 
@@ -53,7 +46,6 @@ try {
   if (u.searchParams.has("telegramAuthToken")) {
     u.searchParams.delete("telegramAuthToken");
     window.history.replaceState(null, "", u.pathname + u.search + u.hash);
-    dbg("info", "stripped telegramAuthToken from URL pre-init");
   }
 } catch {
   /* ignore */
@@ -78,12 +70,11 @@ const root = ReactDOM.createRoot(rootEl);
 
 // Await TG init before first render (Storage-Unavailable fix). On failure we
 // still render — the app degrades to "open in Telegram" UX rather than hanging.
-dbg("info", "initTelegram() start");
 void initTelegram()
-  .then(() => dbg("info", "initTelegram() resolved"))
-  .catch((e) => dbg("error", `initTelegram() threw: ${String(e)}`))
+  .catch(() => {
+    // Non-fatal — render anyway; app degrades to "open in Telegram" UX.
+  })
   .finally(() => {
-    dbg("info", "rendering React");
     root.render(
       <React.StrictMode>
         <RouterProvider router={router} />

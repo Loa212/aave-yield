@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowDown, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
-import { DebugReadout } from "@/components/debug-readout";
 import { TokenIcon } from "@/components/token-icon";
 import { type ProgressStep, TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
@@ -127,10 +126,6 @@ function DepositPage() {
             </Button>
           </div>
         )}
-
-        {/* TEMP DEBUG: visible during bridging too (it can get stuck waiting on
-            the @wallet sign sheet — show the breadcrumbs so we can Copy logs). */}
-        <DebugReadout label="deposit" />
 
         {state.stage === "done" && (
           <div className="space-y-3">
