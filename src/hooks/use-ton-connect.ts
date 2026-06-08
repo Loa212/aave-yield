@@ -73,21 +73,35 @@ export function useTonConnect(): TonConnectWallet {
       // opens. So we (a) PROBE the bridge POST reachability, and (b) RESTORE the
       // connection right before sending so the gateway is fresh.
 
-      // (a) One-shot bridge reachability probe — does the WebView's fetch reach
-      // the bridge at all? GET the bridge events path; any HTTP response (even
-      // 4xx) proves reachability. A network error proves the WebView is blocking
-      // it (the real #340 cause for us).
+      // Log the ACTUAL bridge URL the connected session is using — earlier the
+      // probe tested the wrong host (bridge.tonapi.io, which the ISP blocks),
+      // but @wallet's real bridge is walletbot.me. Surface the real one.
       try {
-        const probe = await fetch(
-          "https://bridge.tonapi.io/bridge/events?client_id=probe",
-          { method: "GET", signal: AbortSignal.timeout(4000) },
-        );
-        dbg("info", `bridge probe: HTTP ${probe.status} (reachable)`);
-      } catch (e) {
+        // biome-ignore lint/suspicious/noExplicitAny: reading private SDK state for diagnosis
+        const provider = (tonConnectUI.connector as any)?.provider;
+        const sessionBridge = provider?.session?.bridgeUrl;
+        const srcBridge = provider?.walletConnectionSource?.bridgeUrl;
         dbg(
-          "error",
-          `bridge probe FAILED: ${String(e)} (WebView blocking it?)`,
+          "info",
+          `session bridge=${sessionBridge ?? "?"} src=${srcBridge ?? "?"}`,
         );
+      } catch (e) {
+        dbg("error", `bridge introspect failed: ${String(e)}`);
+      }
+      // Probe BOTH candidate bridges so we know which is reachable here.
+      for (const host of [
+        "https://walletbot.me/tonconnect-bridge/bridge",
+        "https://bridge.tonapi.io/bridge",
+      ]) {
+        try {
+          const probe = await fetch(`${host}/events?client_id=probe`, {
+            method: "GET",
+            signal: AbortSignal.timeout(4000),
+          });
+          dbg("info", `probe ${host}: HTTP ${probe.status} OK`);
+        } catch (e) {
+          dbg("error", `probe ${host} FAILED: ${String(e)}`);
+        }
       }
 
       // (b) Wait for the SDK's connection-restore to SETTLE before sending —
