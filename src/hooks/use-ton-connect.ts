@@ -244,6 +244,49 @@ export function useTonConnect(): TonConnectWallet {
           "info",
           `provider=${provider ? "set" : "NULL"} gateway=${provider?.gateway ? "set" : "NULL"} session=${provider?.session ? "set" : "NULL"}`,
         );
+
+        // WRAP gateway.send + gateway.post to see exactly where it dies. The send
+        // runs 40s with no POST though a manual POST is ~100ms — so it stalls
+        // INSIDE gateway.send before/at this.post. Log entry/exit of each.
+        const gw = provider?.gateway;
+        if (gw && !gw.__wrapped) {
+          gw.__wrapped = true;
+          const origSend = gw.send?.bind(gw);
+          const origPost = gw.post?.bind(gw);
+          if (origSend) {
+            gw.send = async (...a: unknown[]) => {
+              dbg("info", `>> gateway.send ENTER (args=${a.length})`);
+              try {
+                const r = await origSend(...a);
+                dbg("info", ">> gateway.send EXIT ok");
+                return r;
+              } catch (err) {
+                dbg("error", `>> gateway.send THREW ${String(err)}`);
+                throw err;
+              }
+            };
+          }
+          if (origPost) {
+            gw.post = async (...a: unknown[]) => {
+              dbg("info", ">> gateway.post (fetch) ENTER");
+              try {
+                const r = await origPost(...a);
+                dbg(
+                  "info",
+                  `>> gateway.post EXIT status=${(r as Response)?.status}`,
+                );
+                return r;
+              } catch (err) {
+                dbg("error", `>> gateway.post THREW ${String(err)}`);
+                throw err;
+              }
+            };
+          }
+          dbg(
+            "info",
+            `gateway wrapped (send=${!!origSend} post=${!!origPost})`,
+          );
+        }
       } catch (e) {
         dbg("error", `pre-send probe err: ${String(e)}`);
       }
