@@ -1,3 +1,4 @@
+import { openTelegramLink } from "@telegram-apps/sdk-react";
 import {
   useTonAddress,
   useTonConnectUI,
@@ -5,6 +6,27 @@ import {
 } from "@tonconnect/ui-react";
 import { useCallback, useMemo } from "react";
 import { dbg } from "@/lib/debug-log";
+
+/**
+ * Open a t.me link via Telegram's native opener (falls back to window.open).
+ * Used to surface @wallet after the raw connector delivers the tx request, so
+ * the user can approve it.
+ */
+function openTelegramLinkSafe(link: string): void {
+  try {
+    if (openTelegramLink.isAvailable()) {
+      openTelegramLink(link);
+      return;
+    }
+  } catch {
+    /* fall through */
+  }
+  try {
+    window.open(link, "_blank");
+  } catch {
+    /* ignore */
+  }
+}
 
 /** A single TonConnect-shaped message (what tonBuildEscrowTransfer emits). */
 export interface TonMessageInput {
@@ -133,37 +155,45 @@ export function useTonConnect(): TonConnectWallet {
         /* ignore */
       }
 
-      // Race the send against a timeout so a silent hang SURFACES instead of
-      // spinning forever. The send itself is unaffected if it resolves first.
-      const sendPromise = tonConnectUI.sendTransaction(
-        {
-          validUntil,
-          from: tonConnectUI.account?.address,
-          messages,
-        },
-        {
-          modals: [],
-          notifications: [],
-          onRequestSent: (redirectToWallet) => {
-            dbg("info", "onRequestSent → opening @wallet");
-            redirectToWallet();
-          },
-        },
-      );
-      const timeoutMarker = new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("SEND_TIMEOUT_30s — call never resolved")),
-          30_000,
-        ),
-      );
+      // THE FIX: tonConnectUI.sendTransaction hangs for 30s INSIDE the UI wrapper
+      // — before any bridge POST — even with the bridge healthy (isReady=true).
+      // The widget/modal machinery never settles in this TMA WebView. So bypass
+      // it: call the RAW connector.sendTransaction, which does the bridge POST
+      // directly with NO modal/widget/abort layer. We open @wallet ourselves in
+      // onRequestSent via the wallet's universal link.
+      // biome-ignore lint/suspicious/noExplicitAny: raw connector + private link
+      const connector = tonConnectUI.connector as any;
+      // @wallet's universal link (for the redirect to its confirm screen).
+      const walletUniversalLink: string | undefined =
+        tonConnectUI.wallet && "universalLink" in tonConnectUI.wallet
+          ? (tonConnectUI.wallet as { universalLink?: string }).universalLink
+          : undefined;
+
       try {
-        const result = (await Promise.race([sendPromise, timeoutMarker])) as {
-          boc: string;
-        };
-        dbg("info", `tonconnect send OK: boc=${result.boc?.slice(0, 16)}…`);
+        dbg("info", "calling RAW connector.sendTransaction");
+        const result = await connector.sendTransaction(
+          {
+            validUntil,
+            from: connector.account?.address,
+            network: connector.account?.chain,
+            messages,
+          },
+          {
+            onRequestSent: () => {
+              // Request delivered to the bridge — open @wallet so the user can
+              // approve. Open the universal link via Telegram (startapp routes to
+              // the TonConnect confirm flow).
+              dbg("info", "raw onRequestSent → opening @wallet");
+              if (walletUniversalLink) {
+                openTelegramLinkSafe(walletUniversalLink);
+              }
+            },
+          },
+        );
+        dbg("info", `RAW send OK: boc=${result.boc?.slice(0, 16)}…`);
         return result.boc;
       } catch (e) {
-        dbg("error", `tonconnect send failed: ${String(e)}`);
+        dbg("error", `RAW send failed: ${String(e)}`);
         throw e;
       }
     },
