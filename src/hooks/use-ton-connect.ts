@@ -90,7 +90,18 @@ export function useTonConnect(): TonConnectWallet {
         );
       }
 
-      // (b) Restore the bridge connection so the gateway/SSE is fresh at send.
+      // (b) Wait for the SDK's connection-restore to SETTLE before sending —
+      // this is what the working PerpPilot reference does (await
+      // connectionRestored before any wallet action). If we send while the
+      // bridge gateway is still mid-restore, gateway.send queues onto a
+      // not-yet-open gateway and the POST stalls.
+      try {
+        const restored = await tonConnectUI.connectionRestored;
+        dbg("info", `connectionRestored settled: ${restored}`);
+      } catch (e) {
+        dbg("error", `connectionRestored failed: ${String(e)}`);
+      }
+      // Also force a fresh gateway in case it had paused while hidden.
       try {
         await tonConnectUI.connector?.restoreConnection?.();
         dbg("info", "bridge restoreConnection() done");
