@@ -110,20 +110,33 @@ export function useTonConnect(): TonConnectWallet {
       } catch (e) {
         dbg("error", `bridge introspect failed: ${String(e)}`);
       }
-      // Probe BOTH candidate bridges so we know which is reachable here.
-      for (const host of [
-        "https://walletbot.me/tonconnect-bridge/bridge",
-        "https://bridge.tonapi.io/bridge",
-      ]) {
-        try {
-          const probe = await fetch(`${host}/events?client_id=probe`, {
-            method: "GET",
-            signal: AbortSignal.timeout(4000),
-          });
-          dbg("info", `probe ${host}: HTTP ${probe.status} OK`);
-        } catch (e) {
-          dbg("error", `probe ${host} FAILED: ${String(e)}`);
-        }
+      // Probe the PROXY POST (the operation that hangs direct). GET already
+      // works direct; the POST to /message is what stalls in the WebView. Test
+      // the same-origin proxy POST — if it returns fast, the proxy fixes it.
+      const proxyBase = `${window.location.origin}/_tonbridge`;
+      try {
+        const t = Date.now();
+        const probe = await fetch(
+          `${proxyBase}/message?client_id=probe&to=probe&ttl=300&topic=sendTransaction`,
+          { method: "POST", body: "probe", signal: AbortSignal.timeout(6000) },
+        );
+        dbg(
+          "info",
+          `proxy POST: HTTP ${probe.status} in ${Date.now() - t}ms (proxy works!)`,
+        );
+      } catch (e) {
+        dbg("error", `proxy POST FAILED: ${String(e)}`);
+      }
+      // And the direct POST for comparison (expect: hangs/times out in WebView).
+      try {
+        const t = Date.now();
+        const probe = await fetch(
+          "https://walletbot.me/tonconnect-bridge/bridge/message?client_id=probe&to=probe&ttl=300&topic=sendTransaction",
+          { method: "POST", body: "probe", signal: AbortSignal.timeout(6000) },
+        );
+        dbg("info", `direct POST: HTTP ${probe.status} in ${Date.now() - t}ms`);
+      } catch (e) {
+        dbg("error", `direct POST FAILED: ${String(e)}`);
       }
 
       // (b) Wait for the SDK's connection-restore to SETTLE before sending —
