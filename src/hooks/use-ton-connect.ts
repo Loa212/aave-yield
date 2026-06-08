@@ -169,27 +169,33 @@ export function useTonConnect(): TonConnectWallet {
           ? (tonConnectUI.wallet as { universalLink?: string }).universalLink
           : undefined;
 
+      // OPEN @wallet FIRST. The send's internal pre-POST await chain appears to
+      // stall while the WebView is foregrounded; opening @wallet now means the
+      // user is on the confirm screen, and @wallet pulls the pending request off
+      // the bridge SSE once the POST lands. Then fire the send.
+      if (walletUniversalLink) {
+        dbg("info", "opening @wallet FIRST");
+        openTelegramLinkSafe(walletUniversalLink);
+      }
+
       try {
         dbg("info", "calling RAW connector.sendTransaction");
-        const result = await connector.sendTransaction(
+        const sendP = connector.sendTransaction(
           {
             validUntil,
             from: connector.account?.address,
-            network: connector.account?.chain,
             messages,
           },
           {
-            onRequestSent: () => {
-              // Request delivered to the bridge — open @wallet so the user can
-              // approve. Open the universal link via Telegram (startapp routes to
-              // the TonConnect confirm flow).
-              dbg("info", "raw onRequestSent → opening @wallet");
-              if (walletUniversalLink) {
-                openTelegramLinkSafe(walletUniversalLink);
-              }
-            },
+            onRequestSent: () => dbg("info", "raw onRequestSent (POST landed)"),
           },
         );
+        const timeoutP = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("RAW_SEND_TIMEOUT_40s")), 40_000),
+        );
+        const result = (await Promise.race([sendP, timeoutP])) as {
+          boc: string;
+        };
         dbg("info", `RAW send OK: boc=${result.boc?.slice(0, 16)}…`);
         return result.boc;
       } catch (e) {
